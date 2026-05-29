@@ -1,0 +1,2 @@
+5c1d709f11b056274f030b32bfe9a461982fa3223b80476d257d82a5397683e1  hp-prodesk-600-g4-dm-opencore-ventura-13.7.8.zip
+67585c0f7508b4c464417c229af8e61d0ef27e4b6a3bba43d871a6a8879d73a2  hp-prodesk-600-g4-dm-opencore-monterey-12.7.6.zip

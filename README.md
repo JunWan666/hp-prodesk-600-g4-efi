@@ -59,12 +59,30 @@
 │   ├── 13.7.8
 │   │   └── EFI
 │   └── README.md
+├── dist
+│   ├── hp-prodesk-600-g4-dm-opencore-monterey-12.7.6.zip
+│   ├── hp-prodesk-600-g4-dm-opencore-ventura-13.7.8.zip
+│   ├── README-v12.7.6.md
+│   ├── README-v13.7.8.md
+│   └── README.md
 ├── release_md
+│   ├── v12.7.6.md
 │   └── v13.7.8.md
 ├── script
 │   └── install.sh
 └── README.md
 ```
+
+## Release 文件
+
+`dist` 目录里已经整理好 GitHub Release 可上传文件：
+
+| Release | 压缩包 | 说明 |
+| --- | --- | --- |
+| `v13.7.8` | `dist/hp-prodesk-600-g4-dm-opencore-ventura-13.7.8.zip` | 当前推荐，Ventura 13.7.8 |
+| `v12.7.6` | `dist/hp-prodesk-600-g4-dm-opencore-monterey-12.7.6.zip` | 历史备用，Monterey 12.7.6 |
+
+GitHub Release 的正文可以直接复制 `release_md` 目录里对应版本的 Markdown。
 
 ## 使用前必须修改
 
