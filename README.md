@@ -34,8 +34,10 @@
 
 | 版本目录 | 状态 | 说明 |
 | --- | --- | --- |
-| `all_efi/13.7.8/EFI` | 推荐 | OpenCore 1.0.7，已用于进入 macOS Ventura 13 系统 |
-| `all_efi/12.7.6/EFI` | 备用 | 旧版 OpenCore，曾用于安装 macOS Monterey 12.7.6 |
+| `all_efi/igpu/13.7.8/EFI` | 推荐日用 | Ventura 13.7.8，UHD 630 核显加速版 |
+| `all_efi/safe/13.7.8/EFI` | 推荐安装/救援 | Ventura 13.7.8，安全亮屏版 |
+| `all_efi/igpu/12.7.6/EFI` | 备用 | Monterey 12.7.6，核显加速版 |
+| `all_efi/safe/12.7.6/EFI` | 备用/救援 | Monterey 12.7.6，安全亮屏版 |
 
 ## 当前可用情况
 
@@ -46,7 +48,7 @@
 | 有线网卡 | 可用 | `IntelMausi.kext` |
 | USB 鼠标键盘 | 可用 | `USBPorts.kext`，Ventura EFI 临时开启 `XhciPortLimit` |
 | 声音 | 待复测 | 使用 `alcid=23` |
-| UHD 630 核显加速 | 可开启 | 默认保留 `-igfxvesa`；按下方说明移除后可启用 QE/CI |
+| UHD 630 核显加速 | 可开启 | 使用 `igpu` 目录；`safe` 目录保留 `-igfxvesa` 用于亮屏救援 |
 | DP 输出 | 可用 | DP 直连显示器已验证可开核显加速 |
 | DP 转 HDMI | 可用 | 需主动式 DP 转 HDMI；普通被动线不保证 |
 
@@ -55,14 +57,22 @@
 ```text
 .
 ├── all_efi
-│   ├── 12.7.6
-│   │   └── EFI
-│   ├── 13.7.8
-│   │   └── EFI
+│   ├── safe
+│   │   ├── 12.7.6
+│   │   │   └── EFI
+│   │   └── 13.7.8
+│   │       └── EFI
+│   ├── igpu
+│   │   ├── 12.7.6
+│   │   │   └── EFI
+│   │   └── 13.7.8
+│   │       └── EFI
 │   └── README.md
 ├── dist
-│   ├── hp-prodesk-600-g4-dm-opencore-monterey-12.7.6.zip
-│   ├── hp-prodesk-600-g4-dm-opencore-ventura-13.7.8.zip
+│   ├── hp-prodesk-600-g4-dm-monterey-12.7.6-igpu.zip
+│   ├── hp-prodesk-600-g4-dm-monterey-12.7.6-safe.zip
+│   ├── hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip
+│   ├── hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
 │   ├── README-v12.7.6.md
 │   ├── README-v13.7.8.md
 │   └── README.md
@@ -74,16 +84,16 @@
 └── README.md
 ```
 
-## Release 文件
+## 下载
 
-`dist` 目录里已经整理好 GitHub Release 可上传文件：
+可以按系统版本选择 Release。每个 Release 里同时提供 `igpu` 核显加速版和 `safe` 安全亮屏版两个 ZIP。
 
-| Release | 压缩包 | 说明 |
-| --- | --- | --- |
-| `v13.7.8` | `dist/hp-prodesk-600-g4-dm-opencore-ventura-13.7.8.zip` | 当前推荐，Ventura 13.7.8 |
-| `v12.7.6` | `dist/hp-prodesk-600-g4-dm-opencore-monterey-12.7.6.zip` | 历史备用，Monterey 12.7.6 |
+| Release | macOS | 推荐文件 | 安全/救援文件 | 说明 |
+| --- | --- | --- | --- | --- |
+| [`v13.7.8`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/tag/v13.7.8) | Ventura 13.7.8 | [`hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/download/v13.7.8/hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip) | [`hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/download/v13.7.8/hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip) | 推荐日用版本 |
+| [`v12.7.6`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/tag/v12.7.6) | Monterey 12.7.6 | [`hp-prodesk-600-g4-dm-monterey-12.7.6-igpu.zip`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/download/v12.7.6/hp-prodesk-600-g4-dm-monterey-12.7.6-igpu.zip) | [`hp-prodesk-600-g4-dm-monterey-12.7.6-safe.zip`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/download/v12.7.6/hp-prodesk-600-g4-dm-monterey-12.7.6-safe.zip) | 历史备用版本 |
 
-GitHub Release 的正文可以直接复制 `release_md` 目录里对应版本的 Markdown。
+GitHub Release 的正文可以直接复制 `release_md` 目录里对应版本的 Markdown。`igpu` 需要 DP 直连显示器，或主动式 DP 转 HDMI；黑屏、安装、救援优先用 `safe`。
 
 ## 使用前必须修改
 
@@ -152,8 +162,10 @@ curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/mai
 如果已经把本仓库 clone 到 macOS，也可以本地执行：
 
 ```bash
-sh ./script/install.sh disk0s1
+sh ./script/install.sh disk0s1 ./all_efi/igpu/13.7.8/EFI
 ```
+
+如果需要安全亮屏版，把路径改成 `./all_efi/safe/13.7.8/EFI`。
 
 注意：在线执行脚本前建议先打开脚本链接看一眼内容。不要在没有确认目标 EFI 分区的情况下直接执行。
 
@@ -189,13 +201,13 @@ UHD 630 开启硬件加速后，对显示输出更挑剔。已验证可用的连
 
 ### 开启方式
 
-仓库里的 Ventura EFI 默认保留：
+`safe` 目录里的 EFI 保留：
 
 ```text
 -igfxvesa
 ```
 
-这个参数用于安全亮屏，但会禁用完整核显加速，表现通常是显存只有几 MB、动画卡顿、没有 Metal/QE/CI。
+这个参数用于安全亮屏，但会禁用完整核显加速，表现通常是显存只有几 MB、动画卡顿、没有 Metal/QE/CI。`igpu` 目录里的 EFI 已经删除该参数，用于开启 UHD 630 核显加速。
 
 确认你使用 DP 直连显示器，或主动式 DP 转 HDMI 后，把 `EFI/OC/config.plist` 里 `boot-args` 的 `-igfxvesa` 删除即可。删除后建议保留这些参数：
 

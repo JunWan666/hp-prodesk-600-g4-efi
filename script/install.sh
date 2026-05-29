@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-DEFAULT_LOCAL_EFI="./all_efi/13.7.8/EFI"
+DEFAULT_LOCAL_EFI="./all_efi/safe/13.7.8/EFI"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
   C_RESET="$(printf '\033[0m')"
@@ -62,7 +62,8 @@ usage() {
   diskutil list
   sh ./script/install.sh disk0s1
   sh ./script/install.sh disk0s1 /Volumes/EFI/EFI
-  sh ./script/install.sh disk0s1 ./all_efi/13.7.8/EFI
+  sh ./script/install.sh disk0s1 ./all_efi/safe/13.7.8/EFI
+  sh ./script/install.sh disk0s1 ./all_efi/igpu/13.7.8/EFI
 
 在线执行：
   curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh -s -- disk0s1
