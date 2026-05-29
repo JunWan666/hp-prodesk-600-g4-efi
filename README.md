@@ -76,9 +76,6 @@
 │   ├── README-v12.7.6.md
 │   ├── README-v13.7.8.md
 │   └── README.md
-├── release_md
-│   ├── v12.7.6.md
-│   └── v13.7.8.md
 ├── script
 │   └── install.sh
 └── README.md
@@ -93,7 +90,7 @@
 | [`v13.7.8`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/tag/v13.7.8) | Ventura 13.7.8 | [`hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/download/v13.7.8/hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip) | [`hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/download/v13.7.8/hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip) | 推荐日用版本 |
 | [`v12.7.6`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/tag/v12.7.6) | Monterey 12.7.6 | [`hp-prodesk-600-g4-dm-monterey-12.7.6-igpu.zip`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/download/v12.7.6/hp-prodesk-600-g4-dm-monterey-12.7.6-igpu.zip) | [`hp-prodesk-600-g4-dm-monterey-12.7.6-safe.zip`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/download/v12.7.6/hp-prodesk-600-g4-dm-monterey-12.7.6-safe.zip) | 历史备用版本 |
 
-GitHub Release 的正文可以直接复制 `release_md` 目录里对应版本的 Markdown。`igpu` 需要 DP 直连显示器，或主动式 DP 转 HDMI；黑屏、安装、救援优先用 `safe`。
+GitHub Release 的正文可以直接复制 `dist/README-v13.7.8.md` 或 `dist/README-v12.7.6.md`。`igpu` 需要 DP 直连显示器，或主动式 DP 转 HDMI；黑屏、安装、救援优先用 `safe`。
 
 ## 使用前必须修改
 
