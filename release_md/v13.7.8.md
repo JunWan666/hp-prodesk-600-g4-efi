@@ -38,10 +38,10 @@ ROM
 如果已经能从 U 盘进入 macOS，可以用仓库里的脚本把当前可用 EFI 复制到内置硬盘：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh -s -- disk0s1 /Volumes/OPENCORE/EFI
+curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh -s -- disk0s1
 ```
 
-执行前请先用 `diskutil list` 确认内置硬盘 EFI 分区是否真的是 `disk0s1`。
+执行前请先用 `diskutil list` 确认内置硬盘 EFI 分区是否真的是 `disk0s1`。来源 EFI 可以省略，脚本会自动查找包含 `BOOT` 和 `OC` 的 EFI 目录。
 
 ## 已知问题
 

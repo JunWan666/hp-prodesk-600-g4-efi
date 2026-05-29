@@ -116,17 +116,32 @@ diskutil list
 通常内置硬盘 EFI 是 `disk0s1`。确认后可以在线执行：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh -s -- disk0s1 /Volumes/OPENCORE/EFI
+curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh -s -- disk0s1
 ```
 
 上面命令的含义：
 
 - `disk0s1` 是内置硬盘 EFI 分区，请按 `diskutil list` 的结果确认。
-- `/Volumes/OPENCORE/EFI` 是 U 盘里当前可用的 EFI 路径。如果你的 U 盘卷标不是 `OPENCORE`，请改成实际路径。
+- 来源 EFI 目录可以省略，脚本会自动查找 U 盘或本地仓库里包含 `BOOT` 和 `OC` 的 EFI。
+- 如果找到多个候选 EFI，脚本会列出路径并停止，这时把正确路径作为第二个参数重新执行即可。
+
+例如手动指定来源 EFI：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh -s -- disk0s1 /Volumes/EFI/EFI
+```
+
+如果确认无误，也可以加 `--yes` 跳过安装前确认：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh -s -- disk0s1 --yes
+```
 
 脚本会自动：
 
 - 挂载内置硬盘 EFI 分区
+- 尝试挂载外置 U 盘的 EFI 分区
+- 自动识别来源 EFI 目录
 - 备份已有的 `EFI/BOOT` 和 `EFI/OC`
 - 复制本仓库的 `BOOT` 和 `OC`
 - 保留苹果安装器可能创建的 `EFI/APPLE`
@@ -136,7 +151,7 @@ curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/mai
 如果已经把本仓库 clone 到 macOS，也可以本地执行：
 
 ```bash
-sh ./script/install.sh disk0s1 ./all_efi/13.7.8/EFI
+sh ./script/install.sh disk0s1
 ```
 
 注意：在线执行脚本前建议先打开脚本链接看一眼内容。不要在没有确认目标 EFI 分区的情况下直接执行。
