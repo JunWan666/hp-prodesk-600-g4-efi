@@ -10,7 +10,7 @@
 
 - macOS Monterey 12.7.6
 - SMBIOS: `Macmini8,1`
-- 保留 `-igfxvesa`，优先保证 DP 转 HDMI 环境可亮屏
+- 默认保留 `-igfxvesa`，优先保证安装阶段可亮屏
 - 有线网卡使用 `IntelMausi.kext`
 - 声卡参数使用 `alcid=23`
 - `XhciPortLimit` 当前为关闭状态
@@ -44,8 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/mai
 ## 已知问题
 
 - 这是 Monterey 12 的历史可用配置，不是当前主推版本。
-- UHD 630 当前未开启完整硬件加速。
-- DP 转 HDMI 的核显加速黑屏问题仍需后续 framebuffer 调整或更换主动式转接器验证。
+- UHD 630 可参考主 README 删除 `-igfxvesa` 开启核显加速；建议使用 DP 直连显示器或主动式 DP 转 HDMI。
 - 声音、睡眠、Wi-Fi/蓝牙请按实际硬件继续测试。
 
 ## GitHub Release 填写建议

@@ -4,7 +4,7 @@
 
 这是 HP ProDesk 600 G4 DM 的 macOS Ventura 13.7.8 EFI 发布包，也是当前推荐版本。
 
-这套 EFI 已经用于进入 macOS Ventura 13 系统，适合先完成安装和稳定启动。当前显卡部分保留安全显示模式，优先保证 DP 转 HDMI 环境能够亮屏。
+这套 EFI 已经用于进入 macOS Ventura 13 系统，适合先完成安装和稳定启动。默认保留安全显示参数，确认使用 DP 直连显示器或主动式 DP 转 HDMI 后，可以按 README 删除 `-igfxvesa` 开启 UHD 630 核显加速。
 
 ## 主要内容
 
@@ -14,7 +14,9 @@
 - 支持进入 macOS Ventura 13 系统
 - 已加入 `USBPorts.kext`
 - 临时开启 `XhciPortLimit`，提高安装器中 USB 鼠标键盘可用性
-- 保留 `-igfxvesa`，优先保证 DP 转 HDMI 环境可亮屏
+- 默认保留 `-igfxvesa`，优先保证安装阶段可亮屏
+- DP 直连显示器已验证可开启 UHD 630 核显加速
+- 主动式 DP 转 HDMI 已验证可开启 UHD 630 核显加速
 - 有线网卡使用 `IntelMausi.kext`
 - 声卡参数使用 `alcid=23`
 
@@ -43,10 +45,24 @@ curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/mai
 
 执行前请先用 `diskutil list` 确认内置硬盘 EFI 分区是否真的是 `disk0s1`。来源 EFI 可以省略，脚本会自动查找包含 `BOOT` 和 `OC` 的 EFI 目录。
 
+## 核显加速
+
+默认配置保留 `-igfxvesa`，用于提高安装和首次亮屏成功率。开启核显加速时，请先确认显示连接方式：
+
+- 推荐 DP 直连 DP 显示器。
+- DP 转 HDMI 需要主动式转接器或转接线，建议选择标注 Active / 主动式 / DP 1.2 to HDMI 2.0 / 4K60 的型号。
+- 普通被动式 DP 转 HDMI 不保证可用。
+
+开启方式：删除 `EFI/OC/config.plist` 里 `boot-args` 中的 `-igfxvesa`，保留：
+
+```text
+keepsyms=1 darkwake=2 -v debug=0x100 igfxonln=1 igfxagdc=0 alcid=23
+```
+
+如果黑屏或无信号，把 `-igfxvesa` 加回去即可恢复安全亮屏模式。
+
 ## 已知问题
 
-- UHD 630 当前未开启完整硬件加速。
-- DP 转 HDMI 的核显加速黑屏问题仍需后续 framebuffer 调整或更换主动式转接器验证。
 - 声音、睡眠、Wi-Fi/蓝牙请按实际硬件继续测试。
 
 ## GitHub Release 填写建议

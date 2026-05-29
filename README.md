@@ -8,13 +8,13 @@
 ![macOS](https://img.shields.io/badge/macOS-Ventura%2013.7.8-2563eb?style=for-the-badge&logo=macos&logoColor=white)
 ![Model](https://img.shields.io/badge/HP-ProDesk%20600%20G4%20DM-0096d6?style=for-the-badge&logo=hp&logoColor=white)
 ![CPU](https://img.shields.io/badge/Intel-i3--9100T-0071c5?style=for-the-badge&logo=intel&logoColor=white)
-![iGPU](https://img.shields.io/badge/UHD%20630-Safe%20VESA-f97316?style=for-the-badge)
+![iGPU](https://img.shields.io/badge/UHD%20630-DP%20Accel%20Ready-16a34a?style=for-the-badge)
 
 </div>
 
 ## 说明
 
-这是给 HP ProDesk 600 G4 DM 小主机整理的 OpenCore EFI。当前重点是稳定引导和安装 macOS Ventura 13，仓库内同时保留了一份 Monterey 12.7.6 的历史可用配置。
+这是给 HP ProDesk 600 G4 DM 小主机整理的 OpenCore EFI。当前重点是稳定引导和安装 macOS Ventura 13，仓库内同时保留了一份 Monterey 12.7.6 的历史可用配置。UHD 630 核显加速已通过 DP 直连显示器验证，主动式 DP 转 HDMI 也已验证可用。
 
 公开版已经移除个人 SMBIOS 信息。使用前必须重新生成自己的 `SystemSerialNumber`、`MLB`、`SystemUUID` 和 `ROM`。
 
@@ -46,8 +46,9 @@
 | 有线网卡 | 可用 | `IntelMausi.kext` |
 | USB 鼠标键盘 | 可用 | `USBPorts.kext`，Ventura EFI 临时开启 `XhciPortLimit` |
 | 声音 | 待复测 | 使用 `alcid=23` |
-| UHD 630 核显加速 | 未完成 | 当前保留 `-igfxvesa`，能亮屏但无硬件加速 |
-| DP 转 HDMI | 待优化 | 当前以亮屏和安装为优先 |
+| UHD 630 核显加速 | 可开启 | 默认保留 `-igfxvesa`；按下方说明移除后可启用 QE/CI |
+| DP 输出 | 可用 | DP 直连显示器已验证可开核显加速 |
+| DP 转 HDMI | 可用 | 需主动式 DP 转 HDMI；普通被动线不保证 |
 
 ## 目录结构
 
@@ -175,24 +176,64 @@ sh ./script/install.sh disk0s1
 5. 中途重启时继续从 OpenCore 选择 `macOS Installer` 或内置系统盘。
 6. 系统安装完成后，再把 EFI 安装到内置硬盘 EFI 分区。
 
-## 已知问题
+## 核显加速
 
-### UHD 630 目前是安全显示模式
+### 显示线材要求
 
-Ventura EFI 当前保留：
+UHD 630 开启硬件加速后，对显示输出更挑剔。已验证可用的连接方式：
+
+- DP 直连 DP 显示器，推荐。
+- 主动式 DP 转 HDMI 转接器或转接线，推荐选择标注 Active / 主动式 / DP 1.2 to HDMI 2.0 / 4K60 的型号。
+
+不建议使用普通被动式 DP 转 HDMI 线。被动线可能在跑码后无信号，或者进系统黑屏。
+
+### 开启方式
+
+仓库里的 Ventura EFI 默认保留：
 
 ```text
 -igfxvesa
 ```
 
-这可以保证 DP 转 HDMI 环境下更容易亮屏进入安装器和系统，但会导致显存显示很小、动画卡顿、没有完整 QE/CI 硬件加速。
+这个参数用于安全亮屏，但会禁用完整核显加速，表现通常是显存只有几 MB、动画卡顿、没有 Metal/QE/CI。
 
-后续优化方向：
+确认你使用 DP 直连显示器，或主动式 DP 转 HDMI 后，把 `EFI/OC/config.plist` 里 `boot-args` 的 `-igfxvesa` 删除即可。删除后建议保留这些参数：
 
-- 使用原生 DP 显示器测试核显加速
-- 使用明确标注 Active / 主动式 / DP 1.2 to HDMI 2.0 / 4K60 的转接器
-- 调整 UHD 630 framebuffer connector patch
-- 考虑 HP 原厂 Flex IO HDMI 模块
+```text
+keepsyms=1 darkwake=2 -v debug=0x100 igfxonln=1 igfxagdc=0 alcid=23
+```
+
+当前 EFI 已经包含 UHD 630 所需的主要属性：
+
+```text
+AAPL,ig-platform-id = 07009B3E
+device-id           = 9B3E0000
+```
+
+### macOS 下修改示例
+
+先挂载要修改的 EFI 分区，并确认路径里存在 `EFI/OC/config.plist`。下面以 `/Volumes/EFI/EFI/OC/config.plist` 为例：
+
+```bash
+sudo cp /Volumes/EFI/EFI/OC/config.plist /Volumes/EFI/EFI/OC/config.before-igpu-accel.plist
+sudo /usr/libexec/PlistBuddy -c "Set :NVRAM:Add:7C436110-AB2A-4BBB-A880-FE41995C9F82:boot-args keepsyms=1 darkwake=2 -v debug=0x100 igfxonln=1 igfxagdc=0 alcid=23" /Volumes/EFI/EFI/OC/config.plist
+sync
+```
+
+如果启动后仍然显示 3MB 显存，可以在 OpenCore 界面按空格，执行一次 `Reset NVRAM`，再重新启动。
+
+### 黑屏恢复
+
+如果开启加速后无信号，把 `-igfxvesa` 加回 `boot-args`，或恢复开启前备份的 `config.before-igpu-accel.plist`。
+
+恢复为安全亮屏参数示例：
+
+```bash
+sudo /usr/libexec/PlistBuddy -c "Set :NVRAM:Add:7C436110-AB2A-4BBB-A880-FE41995C9F82:boot-args keepsyms=1 darkwake=2 -v debug=0x100 igfxonln=1 igfxagdc=0 alcid=23 -igfxvesa" /Volumes/EFI/EFI/OC/config.plist
+sync
+```
+
+## 已知问题
 
 ### 不建议直接照搬到不同硬件
 

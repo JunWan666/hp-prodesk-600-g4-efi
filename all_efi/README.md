@@ -14,4 +14,4 @@
 - `SystemUUID`
 - `ROM`
 
-当前 `13.7.8` EFI 以稳定亮屏和安装为优先，保留 `-igfxvesa`，UHD 630 暂未开启完整硬件加速。
+当前 `13.7.8` EFI 以稳定亮屏和安装为优先，默认保留 `-igfxvesa`。如果使用 DP 直连显示器，或主动式 DP 转 HDMI，可以按主 README 的说明删除 `-igfxvesa` 开启 UHD 630 核显加速。普通被动式 DP 转 HDMI 不保证可用。
