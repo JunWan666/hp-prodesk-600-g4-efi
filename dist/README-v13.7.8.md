@@ -1,6 +1,6 @@
 # HP ProDesk 600 G4 DM OpenCore EFI - Ventura 13.7.8
 
-这是 HP ProDesk 600 G4 Desktop Mini 的 macOS Ventura 13.7.8 OpenCore EFI。当前版本是本仓库推荐日用版本，已验证可以进入 macOS Ventura 13.7.8；UHD 630 核显加速已通过 DP 直连显示器验证，主动式 DP 转 HDMI 也已验证可用。
+这是 HP ProDesk 600 G4 Desktop Mini 的 macOS Ventura 13.7.8 OpenCore EFI。当前版本是本仓库推荐日用版本，已验证可以进入 macOS Ventura 13.7.8；UHD 630 核显加速已通过 DP 直连显示器验证，主动式 DP 转 HDMI 也已验证可用；Dell DW1820A / Broadcom BCM94350ZAE 无线网卡和蓝牙已验证可用。
 
 ## 适用硬件
 
@@ -10,6 +10,7 @@
 | CPU | Intel Core i3-9100T |
 | 核显 | Intel UHD Graphics 630 |
 | 有线网卡 | Intel I219-LM |
+| 无线网卡 | Dell DW1820A / Broadcom BCM94350ZAE，已验证 |
 | 声卡 | Conexant，当前使用 `alcid=23` |
 | SMBIOS | `Macmini8,1` |
 | OpenCore | 1.0.7 |
@@ -20,8 +21,8 @@
 
 | 文件 | 模式 | 适合场景 |
 | --- | --- | --- |
-| `hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip` | 核显加速版 | 推荐日用；需要 DP 直连显示器，或主动式 DP 转 HDMI |
-| `hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip` | 安全亮屏版 | 首次安装、黑屏救援、排查显示输出问题 |
+| `hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip` | 核显加速版 | 推荐日用；需要 DP 直连显示器，或主动式 DP 转 HDMI；包含 DW1820A 无线驱动 |
+| `hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip` | 安全亮屏版 | 首次安装、黑屏救援、排查显示输出问题；包含 DW1820A 无线驱动 |
 
 ## 怎么选择
 
@@ -78,6 +79,30 @@ curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/mai
 
 不建议使用普通被动式 DP 转 HDMI 线。选购转接器时优先看是否标注 `Active`、`主动式`、`DP 1.2 to HDMI 2.0`、`4K60`。
 
+## DW1820A 无线和蓝牙
+
+本 Release 的 `igpu` 和 `safe` 两个 ZIP 都已加入 Dell DW1820A / Broadcom BCM94350ZAE 支持。已包含这些 kext：
+
+```text
+AirportBrcmFixup.kext
+BlueToolFixup.kext
+BrcmFirmwareData.kext
+BrcmPatchRAM3.kext
+```
+
+对应启动参数已写入：
+
+```text
+brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2
+```
+
+使用注意：
+
+- 网卡需要接好 MAIN / AUX 天线。
+- 不要把自己网卡的 MAC 地址写进公开仓库或截图里。
+- 如果 Wi-Fi 可用但蓝牙不可用，优先检查网卡蓝牙对应的 USB 端口映射。
+- 这个无线方案是在 Ventura 13.7.8 上验证通过的；Monterey 12.7.6 历史包未在本次更新中重新测试。
+
 ## 黑屏恢复
 
 如果使用 `igpu` 后黑屏：
@@ -91,6 +116,7 @@ curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/mai
 
 - Ventura 13.7.8 可进入系统。
 - 有线网卡可用。
+- Dell DW1820A Wi-Fi / 蓝牙可用。
 - USB 鼠标键盘可用。
 - UHD 630 核显加速在 DP 直连和主动式 DP 转 HDMI 下可用。
 - 声音使用 `alcid=23`，不同机器可能需要自行复测。
@@ -98,8 +124,8 @@ curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/mai
 ## SHA256
 
 ```text
-6512f39261be590d81df8339c3ebd8e49d448e91ee01b9e46dba674b0f1c04e6  hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip
-ba1af54b3bae72780ae6474f559ca45d01502582b186ae4e8238e984d4dd01c3  hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
+3c31cc998f07af2bea218b12253185cc5761e11e5a1b970ecfeefbfe51aa5056  hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip
+85f7a256b22ff8fc70b25d808bbe9471956b182ef610a90b1fc935c57547e544  hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
 ```
 
 ## 免责声明

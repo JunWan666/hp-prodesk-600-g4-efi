@@ -14,7 +14,7 @@
 
 ## 说明
 
-这是给 HP ProDesk 600 G4 DM 小主机整理的 OpenCore EFI。当前重点是稳定引导和安装 macOS Ventura 13，仓库内同时保留了一份 Monterey 12.7.6 的历史可用配置。UHD 630 核显加速已通过 DP 直连显示器验证，主动式 DP 转 HDMI 也已验证可用。
+这是给 HP ProDesk 600 G4 DM 小主机整理的 OpenCore EFI。当前重点是稳定引导和安装 macOS Ventura 13，仓库内同时保留了一份 Monterey 12.7.6 的历史可用配置。UHD 630 核显加速已通过 DP 直连显示器验证，主动式 DP 转 HDMI 也已验证可用。Ventura 13.7.8 EFI 已加入 Dell DW1820A / Broadcom BCM94350ZAE 无线网卡支持。
 
 公开版已经移除个人 SMBIOS 信息。使用前必须重新生成自己的 `SystemSerialNumber`、`MLB`、`SystemUUID` 和 `ROM`。
 
@@ -26,6 +26,7 @@
 | CPU | Intel Core i3-9100T |
 | 核显 | Intel UHD Graphics 630 |
 | 有线网卡 | Intel I219-LM |
+| 无线网卡 | Dell DW1820A / Broadcom BCM94350ZAE，Ventura 13.7.8 已验证 |
 | 声卡 | Conexant，当前使用 `alcid=23` |
 | 硬盘 | Samsung NVMe 256GB |
 | SMBIOS | `Macmini8,1` |
@@ -46,6 +47,8 @@
 | Ventura 13 引导 | 可用 | 已进入系统 |
 | Monterey 12 引导 | 可用 | 历史成功配置 |
 | 有线网卡 | 可用 | `IntelMausi.kext` |
+| DW1820A Wi-Fi | 可用 | Ventura 13.7.8 已验证；EFI 内含 `AirportBrcmFixup.kext` |
+| DW1820A 蓝牙 | 可用 | Ventura 13.7.8 已验证；EFI 内含 `BlueToolFixup.kext`、`BrcmFirmwareData.kext`、`BrcmPatchRAM3.kext` |
 | USB 鼠标键盘 | 可用 | `USBPorts.kext`，Ventura EFI 临时开启 `XhciPortLimit` |
 | 声音 | 待复测 | 使用 `alcid=23` |
 | UHD 630 核显加速 | 可开启 | 使用 `igpu` 目录；`safe` 目录保留 `-igfxvesa` 用于亮屏救援 |
@@ -90,7 +93,7 @@
 | [`v13.7.8`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/tag/v13.7.8) | Ventura 13.7.8 | [`hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/download/v13.7.8/hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip) | [`hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/download/v13.7.8/hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip) | 推荐日用版本 |
 | [`v12.7.6`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/tag/v12.7.6) | Monterey 12.7.6 | [`hp-prodesk-600-g4-dm-monterey-12.7.6-igpu.zip`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/download/v12.7.6/hp-prodesk-600-g4-dm-monterey-12.7.6-igpu.zip) | [`hp-prodesk-600-g4-dm-monterey-12.7.6-safe.zip`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/download/v12.7.6/hp-prodesk-600-g4-dm-monterey-12.7.6-safe.zip) | 历史备用版本 |
 
-GitHub Release 的正文可以直接复制 `dist/README-v13.7.8.md` 或 `dist/README-v12.7.6.md`。`igpu` 需要 DP 直连显示器，或主动式 DP 转 HDMI；黑屏、安装、救援优先用 `safe`。
+GitHub Release 的正文可以直接复制 `dist/README-v13.7.8.md` 或 `dist/README-v12.7.6.md`。`igpu` 需要 DP 直连显示器，或主动式 DP 转 HDMI；黑屏、安装、救援优先用 `safe`。`v13.7.8` 的两个 ZIP 均已包含 DW1820A 无线和蓝牙驱动。
 
 ## 使用前必须修改
 
@@ -241,6 +244,25 @@ sync
 sudo /usr/libexec/PlistBuddy -c "Set :NVRAM:Add:7C436110-AB2A-4BBB-A880-FE41995C9F82:boot-args keepsyms=1 darkwake=2 -v debug=0x100 igfxonln=1 igfxagdc=0 alcid=23 -igfxvesa" /Volumes/EFI/EFI/OC/config.plist
 sync
 ```
+
+## DW1820A 无线网卡
+
+Ventura 13.7.8 的 `igpu` 和 `safe` 两套 EFI 都已经加入 Dell DW1820A / Broadcom BCM94350ZAE 支持，包含：
+
+```text
+AirportBrcmFixup.kext
+BlueToolFixup.kext
+BrcmFirmwareData.kext
+BrcmPatchRAM3.kext
+```
+
+同时已在 `boot-args` 里加入：
+
+```text
+brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2
+```
+
+安装网卡时需要接好 MAIN / AUX 天线。不要把自己网卡的 MAC 地址、序列号等个人信息写进公开仓库。若 Wi-Fi 可用但蓝牙不可用，优先检查 M.2 网卡蓝牙对应的 USB 端口映射。
 
 ## 已知问题
 
