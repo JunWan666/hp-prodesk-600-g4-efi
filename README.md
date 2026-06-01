@@ -81,6 +81,7 @@
 │   └── README.md
 ├── script
 │   ├── install.sh
+│   ├── install-efi-to-usb-core.ps1
 │   └── install-efi-to-usb.ps1
 └── README.md
 ```
