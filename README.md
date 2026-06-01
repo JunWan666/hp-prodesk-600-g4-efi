@@ -117,6 +117,7 @@ powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1
 
 - 选择 EFI 来源，默认是 `Ventura 13.7.8 igpu` 核显加速版。
 - 选择目标 U 盘，只列出 Windows 识别到的可移动磁盘。
+- 选择是否格式化；默认不格式化，只更新 EFI / Recovery。
 - 检查目标是否为 FAT32；非 FAT32 默认停止。
 - 备份旧的 `EFI\BOOT` 和 `EFI\OC`。
 - 清理旧 `BOOT/OC` 后复制新的 `BOOT/OC`。
@@ -135,9 +136,9 @@ powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1 -DriveL
 iex "& { $(irm https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install-efi-to-usb.ps1) } -DriveLetter E -Yes"
 ```
 
-只想更新 EFI、不下载 Recovery 镜像时，加 `-NoRecovery`；需要重新下载并覆盖现有 Recovery 镜像时，加 `-ForceRecovery`。
+默认不会格式化 U 盘。需要先清空目标盘并格式化为 FAT32 / `OPENCORE` 时，在交互菜单里选择格式化，或传入 `-FormatUsb`；格式化前脚本会要求输入确认文字。只想更新 EFI、不下载 Recovery 镜像时，加 `-NoRecovery`；需要重新下载并覆盖现有 Recovery 镜像时，加 `-ForceRecovery`。
 
-注意：这个脚本不会格式化 U 盘。如果 U 盘不是 FAT32，请先手动格式化或给 EFI 分区分配盘符。
+注意：如果选择不格式化，目标 U 盘仍需是 FAT32；否则脚本会停止，除非你明确传入 `-AllowNonFat32`。
 
 ## 使用前必须修改
 

@@ -6,6 +6,7 @@
     [switch]$NoBackup,
     [switch]$NoRecovery,
     [switch]$ForceRecovery,
+    [switch]$FormatUsb,
     [switch]$Help
 )
 
@@ -161,6 +162,7 @@ function Show-Usage {
   iex "& { $(irm https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install-efi-to-usb.ps1) } -DriveLetter E -Yes"
   powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1
   powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1 -DriveLetter E
+  powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1 -DriveLetter E -FormatUsb
   powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1 -DriveLetter E -Source .\all_efi\igpu\13.7.8\EFI -Yes
 
 说明：
@@ -168,7 +170,7 @@ function Show-Usage {
   - 在线运行时会从 GitHub Release 下载 Ventura 13.7.8 igpu / safe EFI。
   - 如果 U 盘缺少 com.apple.recovery.boot，会从 Apple 下载 BaseSystem.dmg 和 BaseSystem.chunklist。
   - 本地 clone 仓库运行时，也可以选择本地 all_efi 目录里的 EFI。
-  - 脚本不会格式化 U 盘，只会更新 U 盘里的 EFI\BOOT 和 EFI\OC。
+  - 默认不会格式化 U 盘；交互选择格式化或传入 -FormatUsb 才会快速格式化目标盘符为 FAT32。
   - 已有 EFI\BOOT / EFI\OC 会先备份到 EFI\backup-before-opencore-时间。
   - EFI\APPLE 会保留。
   - -NoRecovery 只安装 EFI；-ForceRecovery 强制重新下载 Recovery。
@@ -914,6 +916,80 @@ function Test-Fat32Target {
     Stop-WithError "$($Drive.DeviceID) 当前格式是 $($Drive.FileSystem)，不是 FAT32。OpenCore UEFI 启动盘建议使用 FAT32，请先格式化或给 EFI 分区分配盘符。"
 }
 
+function Select-FormatMode {
+    param([object]$Drive)
+
+    if ($FormatUsb) {
+        return $true
+    }
+
+    Write-Section "是否格式化 U 盘"
+    Write-HostSafe ("  目标 U 盘：{0}\  {1}  {2}" -f $Drive.DeviceID, $Drive.VolumeName, $Drive.FileSystem)
+    Write-Line
+    Write-HostSafe "  1. 不格式化，只更新 EFI / Recovery [默认]"
+    Write-HostSafe "  2. 格式化为 FAT32 / OPENCORE，然后安装"
+    Write-HostSafe "  0. 退出"
+    Write-Line
+
+    while ($true) {
+        $choice = Read-Host "请选择 [1]"
+        if ([string]::IsNullOrWhiteSpace($choice)) {
+            $choice = "1"
+        }
+
+        if ($choice -eq "0") {
+            Write-Line "已退出，没有修改 U 盘。"
+            exit 0
+        }
+
+        if ($choice -eq "1") {
+            return $false
+        }
+
+        if ($choice -eq "2") {
+            return $true
+        }
+
+        Write-Warn "无效选择：$choice"
+    }
+}
+
+function Format-UsbDrive {
+    param([object]$Drive)
+
+    if ($Drive.DriveType -ne 2) {
+        Stop-WithError "$($Drive.DeviceID) 不是可移动磁盘，拒绝格式化。"
+    }
+
+    Write-Section "格式化确认"
+    Write-Warn ("即将格式化 {0}\  {1}  {2}  总计 {3}" -f $Drive.DeviceID, $Drive.VolumeName, $Drive.FileSystem, (Convert-Size $Drive.Size))
+    Write-Warn "这会删除该盘符上的所有文件。"
+    Write-Line
+
+    $expected = "FORMAT $($Drive.DeviceID)"
+    $confirm = Read-Host "如确认继续，请输入：$expected"
+    if ($confirm -ne $expected) {
+        Write-Line "确认文字不匹配，已取消格式化。"
+        exit 0
+    }
+
+    Write-Info ("格式化 {0} 为 FAT32 / OPENCORE" -f $Drive.DeviceID)
+    try {
+        Format-Volume -DriveLetter $Drive.DeviceID.TrimEnd(":") -FileSystem FAT32 -NewFileSystemLabel "OPENCORE" -Force -Confirm:$false | Out-Null
+    } catch {
+        Stop-WithError "格式化失败：$($_.Exception.Message)"
+    }
+
+    Start-Sleep -Seconds 2
+    $refreshed = Get-DriveByLetter $Drive.DeviceID
+    if (-not $refreshed) {
+        Stop-WithError "格式化后无法重新识别盘符：$($Drive.DeviceID)"
+    }
+
+    Write-Ok ("格式化完成：{0}\  {1}  {2}" -f $refreshed.DeviceID, $refreshed.VolumeName, $refreshed.FileSystem)
+    return $refreshed
+}
+
 function Get-DriveRoot {
     param([object]$Drive)
     return ($Drive.DeviceID + "\")
@@ -958,7 +1034,8 @@ function Assert-UnderRoot {
 function Confirm-Install {
     param(
         [object]$Drive,
-        [string]$SourcePath
+        [string]$SourcePath,
+        [bool]$WillFormat = $false
     )
 
     if ($Yes) {
@@ -969,6 +1046,11 @@ function Confirm-Install {
     Write-HostSafe ("  目标 U 盘：{0}\  {1}  {2}" -f $Drive.DeviceID, $Drive.VolumeName, $Drive.FileSystem)
     Write-HostSafe ("  来源 EFI ：{0}" -f $SourcePath)
     Write-HostSafe ("  模式     ：{0}" -f $Script:SelectedMode)
+    if ($WillFormat) {
+        Write-HostSafe "  格式化   ：已完成 FAT32 / OPENCORE"
+    } else {
+        Write-HostSafe "  格式化   ：不格式化"
+    }
     if ($NoRecovery) {
         Write-HostSafe "  Recovery ：跳过（-NoRecovery）"
     } elseif ($ForceRecovery) {
@@ -980,7 +1062,9 @@ function Confirm-Install {
     }
     Write-Line
     Write-Warn "将替换目标 U 盘里的 EFI\BOOT 和 EFI\OC"
-    Write-Warn "旧 BOOT / OC 会自动备份"
+    if (-not $WillFormat) {
+        Write-Warn "旧 BOOT / OC 会自动备份"
+    }
     Write-Warn "EFI\APPLE 和其他文件不会删除"
     if (-not $NoRecovery) {
         Write-Warn "缺少 macOS Recovery 时会写入 com.apple.recovery.boot"
@@ -1149,16 +1233,20 @@ if ($Help) {
 Show-Banner
 
 try {
-    Write-Warn "此脚本不会格式化 U 盘，只会更新 EFI\BOOT 和 EFI\OC。"
+    Write-Warn "默认不会格式化 U 盘；只有选择格式化或传入 -FormatUsb 才会清空目标盘。"
     Write-Warn "请确认目标是 U 盘，不是移动硬盘或内置硬盘。"
 
     $sourcePath = Select-EfiSource
     Warn-IfSmbiosPlaceholder $sourcePath
 
     $drive = Select-UsbDrive
+    $willFormat = Select-FormatMode $drive
+    if ($willFormat) {
+        $drive = Format-UsbDrive $drive
+    }
     Test-Fat32Target $drive
 
-    Confirm-Install -Drive $drive -SourcePath $sourcePath
+    Confirm-Install -Drive $drive -SourcePath $sourcePath -WillFormat $willFormat
     Install-EfiToUsb -Drive $drive -SourcePath $sourcePath
     Ensure-RecoveryBoot -Drive $drive
 } finally {

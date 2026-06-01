@@ -6,6 +6,7 @@ param(
     [switch]$NoBackup,
     [switch]$NoRecovery,
     [switch]$ForceRecovery,
+    [switch]$FormatUsb,
     [switch]$Help
 )
 
@@ -64,6 +65,7 @@ if ($AllowNonFat32) { $coreParams["AllowNonFat32"] = $true }
 if ($NoBackup) { $coreParams["NoBackup"] = $true }
 if ($NoRecovery) { $coreParams["NoRecovery"] = $true }
 if ($ForceRecovery) { $coreParams["ForceRecovery"] = $true }
+if ($FormatUsb) { $coreParams["FormatUsb"] = $true }
 if ($Help) { $coreParams["Help"] = $true }
 
 try {
