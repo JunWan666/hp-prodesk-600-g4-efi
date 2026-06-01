@@ -118,48 +118,52 @@ ROM                = 112233000000
 
 已经能从 U 盘启动进 macOS 后，可以把 EFI 复制到内置硬盘 EFI 分区。
 
-先在 macOS 里查看磁盘：
+推荐直接使用交互菜单：
 
 ```bash
-diskutil list
+curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh
 ```
 
-通常内置硬盘 EFI 是 `disk0s1`。确认后可以在线执行：
+脚本会自动识别唯一的内置硬盘 EFI 分区，然后让你选择 EFI 来源：
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh -s -- disk0s1
-```
+- 直接回车：使用当前 U 盘 EFI，适合已经通过 U 盘成功进系统的情况。
+- `2`：从 GitHub 下载 Ventura 13.7.8 `igpu` 核显加速版。
+- `3`：从 GitHub 下载 Ventura 13.7.8 `safe` 安全亮屏版。
+- `4`：手动输入 EFI 路径。
 
-上面命令的含义：
-
-- `disk0s1` 是内置硬盘 EFI 分区，请按 `diskutil list` 的结果确认。
-- 来源 EFI 目录可以省略，脚本会自动查找 U 盘或本地仓库里包含 `BOOT` 和 `OC` 的 EFI。
-- 如果找到多个候选 EFI，脚本会列出路径并停止，这时把正确路径作为第二个参数重新执行即可。
-
-例如手动指定来源 EFI：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh -s -- disk0s1 /Volumes/EFI/EFI
-```
-
-如果确认无误，也可以加 `--yes` 跳过安装前确认：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh -s -- disk0s1 --yes
-```
+安装前确认页面直接回车等同于 `Y`，输入 `n` 才取消。
 
 脚本会自动：
 
 - 挂载内置硬盘 EFI 分区
 - 尝试挂载外置 U 盘的 EFI 分区
-- 自动识别来源 EFI 目录
+- 校验来源 EFI 是否包含 `BOOT` 和 `OC`
+- 从 GitHub 下载时校验 SHA256
 - 备份已有的 `EFI/BOOT` 和 `EFI/OC`
-- 复制本仓库的 `BOOT` 和 `OC`
+- 清理旧的 `EFI/BOOT` 和 `EFI/OC` 后再复制，避免旧 kext 残留
 - 保留苹果安装器可能创建的 `EFI/APPLE`
 
 完成后关机，拔掉 U 盘，再从内置硬盘启动测试。
 
-如果已经把本仓库 clone 到 macOS，也可以本地执行：
+如果脚本检测不到内置 EFI，或者检测到多个内置 EFI，会停止并提示你手动指定。先查看磁盘：
+
+```bash
+diskutil list
+```
+
+通常内置硬盘 EFI 是 `disk0s1`，可以这样执行：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh -s -- disk0s1
+```
+
+如果已经把本仓库 clone 到 macOS，也可以本地执行交互菜单：
+
+```bash
+sh ./script/install.sh
+```
+
+或者直接指定目标和来源：
 
 ```bash
 sh ./script/install.sh disk0s1 ./all_efi/igpu/13.7.8/EFI
@@ -167,7 +171,7 @@ sh ./script/install.sh disk0s1 ./all_efi/igpu/13.7.8/EFI
 
 如果需要安全亮屏版，把路径改成 `./all_efi/safe/13.7.8/EFI`。
 
-注意：在线执行脚本前建议先打开脚本链接看一眼内容。不要在没有确认目标 EFI 分区的情况下直接执行。
+注意：在线执行脚本前建议先打开脚本链接看一眼内容。脚本会尽量自动识别目标 EFI，但如果你的机器有多个内置硬盘或多个 EFI 分区，请按提示手动指定。
 
 ## Ventura 13 安装提示
 

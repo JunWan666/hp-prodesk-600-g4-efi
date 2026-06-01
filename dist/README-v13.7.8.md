@@ -56,19 +56,27 @@
 4. 第一次替换 EFI 后，建议在 OpenCore 界面执行一次 `Reset NVRAM`。
 5. 进入系统后确认显卡、网卡、USB、声音等功能。
 
-如果你已经能通过 U 盘进入 macOS，可以用仓库脚本把当前 U 盘 EFI 复制到内置硬盘 EFI 分区。先在 macOS 里确认磁盘：
+如果你已经能通过 U 盘进入 macOS，可以用仓库脚本把当前 U 盘 EFI 复制到内置硬盘 EFI 分区。推荐直接使用交互菜单：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh
+```
+
+脚本会自动识别唯一的内置硬盘 EFI 分区。选择来源时直接回车就是使用当前 U 盘 EFI；也可以选择从 GitHub 下载 `igpu` 核显加速版或 `safe` 安全亮屏版。
+
+如果自动识别失败，先在 macOS 里确认磁盘：
 
 ```bash
 diskutil list
 ```
 
-通常内置硬盘 EFI 是 `disk0s1`。确认后执行：
+通常内置硬盘 EFI 是 `disk0s1`，可以手动指定：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh -s -- disk0s1
 ```
 
-脚本会备份内置硬盘已有的 `EFI/BOOT` 和 `EFI/OC`，再复制当前可用的 EFI。
+脚本会备份内置硬盘已有的 `EFI/BOOT` 和 `EFI/OC`，清理旧目录后再复制当前可用的 EFI，并保留 `EFI/APPLE`。
 
 ## 核显加速和显示线材
 
