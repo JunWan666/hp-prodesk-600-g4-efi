@@ -98,7 +98,15 @@ GitHub Release 的正文可以直接复制 `dist/README-v13.7.8.md` 或 `dist/RE
 
 ## Windows 安装 EFI 到 U 盘
 
-如果你已经在 Windows 上 clone 了本仓库，可以用 PowerShell 脚本把 EFI 安装到 U 盘：
+推荐直接在线运行 PowerShell 脚本，不需要先 clone 仓库：
+
+```powershell
+irm https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install-efi-to-usb.ps1 | iex
+```
+
+脚本会从 GitHub Release 下载 EFI 包，并在复制前校验 SHA256。默认来源是 `Ventura 13.7.8 igpu` 核显加速版，也可以在菜单里选择 `safe` 安全亮屏版。
+
+如果你已经在 Windows 上 clone 了本仓库，也可以本地运行：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1
@@ -113,10 +121,16 @@ powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1
 - 清理旧 `BOOT/OC` 后复制新的 `BOOT/OC`。
 - 保留 `EFI\APPLE` 和 U 盘上的其他文件。
 
-也可以直接指定盘符和来源：
+本地运行时也可以直接指定盘符和来源：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1 -DriveLetter E -Source .\all_efi\igpu\13.7.8\EFI -Yes
+```
+
+在线运行并指定盘符也可以这样写：
+
+```powershell
+iex "& { $(irm https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install-efi-to-usb.ps1) } -DriveLetter E -Yes"
 ```
 
 注意：这个脚本不会格式化 U 盘。如果 U 盘不是 FAT32，请先手动格式化或给 EFI 分区分配盘符。

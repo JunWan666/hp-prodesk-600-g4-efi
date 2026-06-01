@@ -10,8 +10,27 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$Script:RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
+$Script:RepoRoot = $null
+try {
+    if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+        $candidateRoot = Join-Path $PSScriptRoot ".."
+        if (Test-Path -LiteralPath (Join-Path $candidateRoot "all_efi") -PathType Container) {
+            $Script:RepoRoot = (Resolve-Path -LiteralPath $candidateRoot).Path
+        }
+    }
+} catch {
+    $Script:RepoRoot = $null
+}
+
+if (-not $Script:RepoRoot -and (Test-Path -LiteralPath (Join-Path $PWD.Path "all_efi") -PathType Container)) {
+    $Script:RepoRoot = (Resolve-Path -LiteralPath $PWD.Path).Path
+}
+
 $Script:SelectedMode = ""
+$Script:ReleaseTag = "v13.7.8"
+$Script:RepoUrl = "https://github.com/JunWan666/hp-prodesk-600-g4-efi"
+$Script:RawBaseUrl = "https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main"
+$Script:TempDirs = @()
 
 function Write-Line {
     param([string]$Text = "")
@@ -65,50 +84,95 @@ function Show-Banner {
 }
 
 function Show-Usage {
-    $usage = @"
+    $usage = @'
 用法：
+  irm https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install-efi-to-usb.ps1 | iex
+  iex "& { $(irm https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install-efi-to-usb.ps1) } -DriveLetter E -Yes"
   powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1
   powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1 -DriveLetter E
   powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1 -DriveLetter E -Source .\all_efi\igpu\13.7.8\EFI -Yes
 
 说明：
-  - 这个脚本用于在 Windows 上把本仓库 EFI 安装到 U 盘。
+  - 这个脚本用于在 Windows 上把 OpenCore EFI 安装到 U 盘。
+  - 在线运行时会从 GitHub Release 下载 Ventura 13.7.8 igpu / safe EFI。
+  - 本地 clone 仓库运行时，也可以选择本地 all_efi 目录里的 EFI。
   - 脚本不会格式化 U 盘，只会更新 U 盘里的 EFI\BOOT 和 EFI\OC。
   - 已有 EFI\BOOT / EFI\OC 会先备份到 EFI\backup-before-opencore-时间。
   - EFI\APPLE 会保留。
-  - 默认来源是 Ventura 13.7.8 igpu 核显加速版。
+  - 默认来源是 GitHub Ventura 13.7.8 igpu 核显加速版。
   - 目标 U 盘建议使用 FAT32；非 FAT32 默认会停止。
-"@
+'@
     Write-Host $usage
 }
 
-function Get-SourceOptions {
+function Get-ReleaseSourceOptions {
     @(
         [pscustomobject]@{
             Index = 1
-            Name = "Ventura 13.7.8 - igpu 核显加速版"
-            Path = Join-Path $Script:RepoRoot "all_efi\igpu\13.7.8\EFI"
-            Desc = "推荐日用；需要 DP 直连或主动式 DP 转 HDMI；包含 DW1820A"
+            Kind = "Release"
+            Mode = "igpu"
+            Name = "GitHub · Ventura 13.7.8 · igpu 核显加速版"
+            FileName = "hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip"
+            Sha256 = "10b10e6c30f986c16f1e4cbbfef35cfe80cd2791d33d5881f4731a81cfa03f97"
+            Desc = "DP 直连 / 主动式 DP 转 HDMI，日常使用推荐；包含 DW1820A"
         },
         [pscustomobject]@{
             Index = 2
-            Name = "Ventura 13.7.8 - safe 安全亮屏版"
-            Path = Join-Path $Script:RepoRoot "all_efi\safe\13.7.8\EFI"
-            Desc = "首次安装、黑屏救援、线材不确定时使用；包含 DW1820A"
+            Kind = "Release"
+            Mode = "safe"
+            Name = "GitHub · Ventura 13.7.8 · safe 安全亮屏版"
+            FileName = "hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip"
+            Sha256 = "0232d1dba1a4b754cb3b8777ffb2c4ad4c5b7da8d51631c53fd6d4e8c9ba0fa4"
+            Desc = "首次安装、黑屏救援、显示器线材不确定；包含 DW1820A"
+        }
+    )
+}
+
+function Get-LocalSourceOptions {
+    if (-not $Script:RepoRoot) {
+        return @()
+    }
+
+    @(
+        [pscustomobject]@{
+            Kind = "Local"
+            Name = "本地 · Ventura 13.7.8 · igpu 核显加速版"
+            Path = Join-Path $Script:RepoRoot "all_efi\igpu\13.7.8\EFI"
+            Desc = "本地仓库文件；DP 直连 / 主动式 DP 转 HDMI"
         },
         [pscustomobject]@{
-            Index = 3
-            Name = "Monterey 12.7.6 - igpu 核显加速版"
+            Kind = "Local"
+            Name = "本地 · Ventura 13.7.8 · safe 安全亮屏版"
+            Path = Join-Path $Script:RepoRoot "all_efi\safe\13.7.8\EFI"
+            Desc = "本地仓库文件；首次安装、黑屏救援"
+        },
+        [pscustomobject]@{
+            Kind = "Local"
+            Name = "本地 · Monterey 12.7.6 · igpu 核显加速版"
             Path = Join-Path $Script:RepoRoot "all_efi\igpu\12.7.6\EFI"
             Desc = "历史备用版本"
         },
         [pscustomobject]@{
-            Index = 4
-            Name = "Monterey 12.7.6 - safe 安全亮屏版"
+            Kind = "Local"
+            Name = "本地 · Monterey 12.7.6 · safe 安全亮屏版"
             Path = Join-Path $Script:RepoRoot "all_efi\safe\12.7.6\EFI"
             Desc = "历史备用 / 救援版本"
         }
     )
+}
+
+function Get-SourceOptions {
+    $items = @()
+    $items += Get-ReleaseSourceOptions
+    $items += Get-LocalSourceOptions
+
+    $index = 1
+    foreach ($item in $items) {
+        $item | Add-Member -NotePropertyName Index -NotePropertyValue $index -Force
+        $index++
+    }
+
+    return $items
 }
 
 function Get-FullPathSafe {
@@ -154,6 +218,130 @@ function Resolve-EfiSource {
     return $null
 }
 
+function New-WorkDir {
+    $base = Join-Path ([System.IO.Path]::GetTempPath()) ("hp-prodesk-efi-usb-" + [System.Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $base -Force | Out-Null
+    $Script:TempDirs += $base
+    return $base
+}
+
+function Clear-WorkDirs {
+    foreach ($dir in $Script:TempDirs) {
+        if (Test-Path -LiteralPath $dir) {
+            try {
+                Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction Stop
+            } catch {
+                Write-Warn "临时目录清理失败，可手动删除：$dir"
+            }
+        }
+    }
+}
+
+function Invoke-DownloadFile {
+    param(
+        [string]$Url,
+        [string]$OutFile
+    )
+
+    Write-Info "下载：$Url"
+    try {
+        Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing
+    } catch {
+        throw "下载失败：$($_.Exception.Message)"
+    }
+}
+
+function Expand-ZipSafe {
+    param(
+        [string]$ZipPath,
+        [string]$Destination
+    )
+
+    try {
+        Expand-Archive -LiteralPath $ZipPath -DestinationPath $Destination -Force
+    } catch {
+        throw "ZIP 解压失败：$($_.Exception.Message)"
+    }
+}
+
+function Resolve-ExtractedEfi {
+    param([string]$ExtractDir)
+
+    $direct = Join-Path $ExtractDir "EFI"
+    $resolved = Resolve-EfiSource $direct
+    if ($resolved) {
+        return $resolved
+    }
+
+    $candidates = @(Get-ChildItem -LiteralPath $ExtractDir -Directory -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ieq "EFI" })
+
+    foreach ($candidate in $candidates) {
+        $resolvedCandidate = Resolve-EfiSource $candidate.FullName
+        if ($resolvedCandidate) {
+            return $resolvedCandidate
+        }
+    }
+
+    return $null
+}
+
+function Get-ReleaseAssetUrl {
+    param([string]$FileName)
+    return "$($Script:RepoUrl)/releases/download/$($Script:ReleaseTag)/$FileName"
+}
+
+function Get-RawAssetUrl {
+    param([string]$FileName)
+    return "$($Script:RawBaseUrl)/dist/$FileName"
+}
+
+function Download-ReleaseEfi {
+    param([object]$Option)
+
+    $workDir = New-WorkDir
+    $zipPath = Join-Path $workDir $Option.FileName
+    $extractDir = Join-Path $workDir "extract"
+    New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
+
+    $urls = @(
+        Get-ReleaseAssetUrl $Option.FileName,
+        Get-RawAssetUrl $Option.FileName
+    )
+
+    $downloaded = $false
+    foreach ($url in $urls) {
+        try {
+            Invoke-DownloadFile -Url $url -OutFile $zipPath
+            $downloaded = $true
+            break
+        } catch {
+            Write-Warn $_
+        }
+    }
+
+    if (-not $downloaded) {
+        Stop-WithError "无法下载 $($Option.FileName)。请检查网络，或手动下载 Release ZIP。"
+    }
+
+    $actualHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $expectedHash = $Option.Sha256.ToLowerInvariant()
+    if ($actualHash -ne $expectedHash) {
+        Stop-WithError "SHA256 校验失败。期望：$expectedHash，实际：$actualHash"
+    }
+    Write-Ok "SHA256 校验通过"
+
+    Expand-ZipSafe -ZipPath $zipPath -Destination $extractDir
+
+    $resolved = Resolve-ExtractedEfi $extractDir
+    if (-not $resolved) {
+        Stop-WithError "解压后没有找到完整 EFI。需要包含 EFI\BOOT、EFI\OC 和 EFI\OC\config.plist。"
+    }
+
+    Write-Ok "已准备 EFI：$resolved"
+    return $resolved
+}
+
 function Select-EfiSource {
     if (-not [string]::IsNullOrWhiteSpace($Source)) {
         $resolved = Resolve-EfiSource $Source
@@ -166,14 +354,20 @@ function Select-EfiSource {
 
     while ($true) {
         Write-Section "选择 EFI 来源"
-        foreach ($option in Get-SourceOptions) {
+        $options = @(Get-SourceOptions)
+        foreach ($option in $options) {
             $prefix = if ($option.Index -eq 1) { "[默认]" } else { "      " }
             Write-Host ("  {0} {1}) {2}" -f $prefix, $option.Index, $option.Name) -ForegroundColor Green
             Write-Host ("          {0}" -f $option.Desc)
-            Write-Host ("          {0}" -f $option.Path) -ForegroundColor DarkGray
+            if ($option.Kind -eq "Release") {
+                Write-Host ("          {0}" -f (Get-ReleaseAssetUrl $option.FileName)) -ForegroundColor DarkGray
+            } else {
+                Write-Host ("          {0}" -f $option.Path) -ForegroundColor DarkGray
+            }
             Write-Line
         }
-        Write-Host "        5) 手动输入 EFI 路径"
+        $manualIndex = $options.Count + 1
+        Write-Host ("        {0}) 手动输入 EFI 路径" -f $manualIndex)
         Write-Host "        0) 退出"
         Write-Line
 
@@ -187,7 +381,7 @@ function Select-EfiSource {
             exit 0
         }
 
-        if ($choice -eq "5") {
+        if ($choice -eq "$manualIndex") {
             $manual = Read-Host "请输入 EFI 路径"
             $resolvedManual = Resolve-EfiSource $manual
             if ($resolvedManual) {
@@ -203,10 +397,15 @@ function Select-EfiSource {
             continue
         }
 
-        $selected = Get-SourceOptions | Where-Object { $_.Index -eq [int]$choice } | Select-Object -First 1
+        $selected = $options | Where-Object { $_.Index -eq [int]$choice } | Select-Object -First 1
         if (-not $selected) {
             Write-Warn "无效选择：$choice"
             continue
+        }
+
+        if ($selected.Kind -eq "Release") {
+            $Script:SelectedMode = $selected.Name
+            return (Download-ReleaseEfi $selected)
         }
 
         $resolved = Resolve-EfiSource $selected.Path
@@ -481,14 +680,18 @@ if ($Help) {
 
 Show-Banner
 
-Write-Warn "此脚本不会格式化 U 盘，只会更新 EFI\BOOT 和 EFI\OC。"
-Write-Warn "请确认目标是 U 盘，不是移动硬盘或内置硬盘。"
+try {
+    Write-Warn "此脚本不会格式化 U 盘，只会更新 EFI\BOOT 和 EFI\OC。"
+    Write-Warn "请确认目标是 U 盘，不是移动硬盘或内置硬盘。"
 
-$sourcePath = Select-EfiSource
-Warn-IfSmbiosPlaceholder $sourcePath
+    $sourcePath = Select-EfiSource
+    Warn-IfSmbiosPlaceholder $sourcePath
 
-$drive = Select-UsbDrive
-Test-Fat32Target $drive
+    $drive = Select-UsbDrive
+    Test-Fat32Target $drive
 
-Confirm-Install -Drive $drive -SourcePath $sourcePath
-Install-EfiToUsb -Drive $drive -SourcePath $sourcePath
+    Confirm-Install -Drive $drive -SourcePath $sourcePath
+    Install-EfiToUsb -Drive $drive -SourcePath $sourcePath
+} finally {
+    Clear-WorkDirs
+}
