@@ -153,10 +153,25 @@ internal_efi_partitions() {
 }
 
 target_internal_flag() {
-  diskutil info "$1" 2>/dev/null | awk -F': *' '/Internal/ {print $2; exit}'
+  diskutil info "$1" 2>/dev/null | awk -F': *' '
+    /Internal/ {print $2; exit}
+    /Device Location/ {
+      if ($2 == "Internal") print "Yes"
+      else if ($2 == "External") print "No"
+      exit
+    }
+  '
+}
+
+is_detected_internal_efi() {
+  internal_efi_partitions | awk -v target="$1" '$0 == target {found = 1} END {exit found ? 0 : 1}'
 }
 
 ensure_target_is_internal() {
+  if is_detected_internal_efi "$1"; then
+    return 0
+  fi
+
   flag="$(target_internal_flag "$1" || true)"
 
   case "$flag" in
@@ -326,7 +341,7 @@ download_verified_zip() {
   raw_url="$RAW_BASE_URL/dist/$zip_name"
 
   info "下载 GitHub Release：$zip_name"
-  if curl -fL --retry 3 --connect-timeout 20 -o "$zip_path" "$release_url"; then
+  if curl -fsSL --retry 3 --connect-timeout 20 -o "$zip_path" "$release_url"; then
     if verify_download_hash "$zip_path" "$zip_name" "$tmp_dir"; then
       return 0
     fi
@@ -337,7 +352,7 @@ download_verified_zip() {
 
   rm -f "$zip_path"
   info "下载 main 分支 dist：$zip_name"
-  if ! curl -fL --retry 3 --connect-timeout 20 -o "$zip_path" "$raw_url"; then
+  if ! curl -fsSL --retry 3 --connect-timeout 20 -o "$zip_path" "$raw_url"; then
     warn "GitHub 下载失败。请检查网络，或先用 U 盘 EFI 安装。"
     return 1
   fi

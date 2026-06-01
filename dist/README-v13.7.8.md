@@ -132,8 +132,8 @@ brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2
 ## SHA256
 
 ```text
-3c31cc998f07af2bea218b12253185cc5761e11e5a1b970ecfeefbfe51aa5056  hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip
-85f7a256b22ff8fc70b25d808bbe9471956b182ef610a90b1fc935c57547e544  hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
+10b10e6c30f986c16f1e4cbbfef35cfe80cd2791d33d5881f4731a81cfa03f97  hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip
+0232d1dba1a4b754cb3b8777ffb2c4ad4c5b7da8d51631c53fd6d4e8c9ba0fa4  hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
 ```
 
 ## 免责声明
