@@ -80,7 +80,8 @@
 │   ├── README-v13.7.8.md
 │   └── README.md
 ├── script
-│   └── install.sh
+│   ├── install.sh
+│   └── install-efi-to-usb.ps1
 └── README.md
 ```
 
@@ -94,6 +95,31 @@
 | [`v12.7.6`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/tag/v12.7.6) | Monterey 12.7.6 | [`hp-prodesk-600-g4-dm-monterey-12.7.6-igpu.zip`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/download/v12.7.6/hp-prodesk-600-g4-dm-monterey-12.7.6-igpu.zip) | [`hp-prodesk-600-g4-dm-monterey-12.7.6-safe.zip`](https://github.com/JunWan666/hp-prodesk-600-g4-efi/releases/download/v12.7.6/hp-prodesk-600-g4-dm-monterey-12.7.6-safe.zip) | 历史备用版本 |
 
 GitHub Release 的正文可以直接复制 `dist/README-v13.7.8.md` 或 `dist/README-v12.7.6.md`。`igpu` 需要 DP 直连显示器，或主动式 DP 转 HDMI；黑屏、安装、救援优先用 `safe`。`v13.7.8` 的两个 ZIP 均已包含 DW1820A 无线和蓝牙驱动。
+
+## Windows 安装 EFI 到 U 盘
+
+如果你已经在 Windows 上 clone 了本仓库，可以用 PowerShell 脚本把 EFI 安装到 U 盘：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1
+```
+
+脚本会显示中文彩色菜单：
+
+- 选择 EFI 来源，默认是 `Ventura 13.7.8 igpu` 核显加速版。
+- 选择目标 U 盘，只列出 Windows 识别到的可移动磁盘。
+- 检查目标是否为 FAT32；非 FAT32 默认停止。
+- 备份旧的 `EFI\BOOT` 和 `EFI\OC`。
+- 清理旧 `BOOT/OC` 后复制新的 `BOOT/OC`。
+- 保留 `EFI\APPLE` 和 U 盘上的其他文件。
+
+也可以直接指定盘符和来源：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1 -DriveLetter E -Source .\all_efi\igpu\13.7.8\EFI -Yes
+```
+
+注意：这个脚本不会格式化 U 盘。如果 U 盘不是 FAT32，请先手动格式化或给 EFI 分区分配盘符。
 
 ## 使用前必须修改
 
