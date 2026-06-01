@@ -136,7 +136,7 @@ powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1 -DriveL
 iex "& { $(irm https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install-efi-to-usb.ps1) } -DriveLetter E -Yes"
 ```
 
-默认不会格式化 U 盘。需要先清空目标盘并格式化为 FAT32 / `OPENCORE` 时，在交互菜单里选择格式化，或传入 `-FormatUsb`；格式化前脚本会要求输入确认文字。只想更新 EFI、不下载 Recovery 镜像时，加 `-NoRecovery`；需要重新下载并覆盖现有 Recovery 镜像时，加 `-ForceRecovery`。
+默认不会格式化 U 盘。需要先清空目标盘并格式化为 FAT32 / `OPENCORE` 时，在交互菜单里选择格式化，或传入 `-FormatUsb`；格式化前脚本会要求输入 `YES` 确认。只想更新 EFI、不下载 Recovery 镜像时，加 `-NoRecovery`；需要重新下载并覆盖现有 Recovery 镜像时，加 `-ForceRecovery`。
 
 注意：如果选择不格式化，目标 U 盘仍需是 FAT32；否则脚本会停止，除非你明确传入 `-AllowNonFat32`。
 

@@ -966,8 +966,9 @@ function Format-UsbDrive {
     Write-Warn "这会删除该盘符上的所有文件。"
     Write-Line
 
-    $expected = "FORMAT $($Drive.DeviceID)"
-    $confirm = Read-Host "如确认继续，请输入：$expected"
+    $confirm = Read-Host "如确认继续，请输入 YES"
+    $confirm = if ($null -eq $confirm) { "" } else { $confirm.Trim() }
+    $expected = "YES"
     if ($confirm -ne $expected) {
         Write-Line "确认文字不匹配，已取消格式化。"
         exit 0
@@ -975,7 +976,9 @@ function Format-UsbDrive {
 
     Write-Info ("格式化 {0} 为 FAT32 / OPENCORE" -f $Drive.DeviceID)
     try {
-        Format-Volume -DriveLetter $Drive.DeviceID.TrimEnd(":") -FileSystem FAT32 -NewFileSystemLabel "OPENCORE" -Force -Confirm:$false | Out-Null
+        $letter = $Drive.DeviceID.TrimEnd(":")
+        $partition = Get-Partition -DriveLetter $letter -ErrorAction Stop
+        Format-Volume -Partition $partition -FileSystem FAT32 -NewFileSystemLabel "OPENCORE" -Force -Confirm:$false | Out-Null
     } catch {
         Stop-WithError "格式化失败：$($_.Exception.Message)"
     }
