@@ -105,7 +105,7 @@ GitHub Release 的正文可以直接复制 `dist/README-v13.7.8.md` 或 `dist/RE
 irm https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install-efi-to-usb.ps1 | iex
 ```
 
-脚本会从 GitHub Release 下载 EFI 包，并在复制前校验 SHA256。默认来源是 `Ventura 13.7.8 igpu` 核显加速版，也可以在菜单里选择 `safe` 安全亮屏版。
+脚本会从 GitHub Release 下载 EFI 包，并在复制前校验 SHA256。默认来源是 `Ventura 13.7.8 igpu` 核显加速版，也可以在菜单里选择 `safe` 安全亮屏版。如果目标 U 盘缺少 `com.apple.recovery.boot`，脚本会从 Apple Recovery 下载 `BaseSystem.dmg` 和 `BaseSystem.chunklist`，让 U 盘具备 macOS Recovery / 安装器入口。
 
 如果你已经在 Windows 上 clone 了本仓库，也可以本地运行：
 
@@ -121,6 +121,7 @@ powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1
 - 备份旧的 `EFI\BOOT` 和 `EFI\OC`。
 - 清理旧 `BOOT/OC` 后复制新的 `BOOT/OC`。
 - 保留 `EFI\APPLE` 和 U 盘上的其他文件。
+- 缺少 `com.apple.recovery.boot` 时，下载并写入 macOS Recovery 镜像。
 
 本地运行时也可以直接指定盘符和来源：
 
@@ -133,6 +134,8 @@ powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1 -DriveL
 ```powershell
 iex "& { $(irm https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install-efi-to-usb.ps1) } -DriveLetter E -Yes"
 ```
+
+只想更新 EFI、不下载 Recovery 镜像时，加 `-NoRecovery`；需要重新下载并覆盖现有 Recovery 镜像时，加 `-ForceRecovery`。
 
 注意：这个脚本不会格式化 U 盘。如果 U 盘不是 FAT32，请先手动格式化或给 EFI 分区分配盘符。
 

@@ -4,6 +4,8 @@ param(
     [switch]$Yes,
     [switch]$AllowNonFat32,
     [switch]$NoBackup,
+    [switch]$NoRecovery,
+    [switch]$ForceRecovery,
     [switch]$Help
 )
 
@@ -60,6 +62,8 @@ if (-not [string]::IsNullOrWhiteSpace($Source)) {
 if ($Yes) { $coreParams["Yes"] = $true }
 if ($AllowNonFat32) { $coreParams["AllowNonFat32"] = $true }
 if ($NoBackup) { $coreParams["NoBackup"] = $true }
+if ($NoRecovery) { $coreParams["NoRecovery"] = $true }
+if ($ForceRecovery) { $coreParams["ForceRecovery"] = $true }
 if ($Help) { $coreParams["Help"] = $true }
 
 try {

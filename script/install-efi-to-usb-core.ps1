@@ -4,6 +4,8 @@
     [switch]$Yes,
     [switch]$AllowNonFat32,
     [switch]$NoBackup,
+    [switch]$NoRecovery,
+    [switch]$ForceRecovery,
     [switch]$Help
 )
 
@@ -30,6 +32,9 @@ $Script:SelectedMode = ""
 $Script:ReleaseTag = "v13.7.8"
 $Script:RepoUrl = "https://github.com/JunWan666/hp-prodesk-600-g4-efi"
 $Script:RawBaseUrl = "https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main"
+$Script:RecoveryBoardId = "Mac-B4831CEBD52A0C4C"
+$Script:RecoveryMlb = "00000000000000000"
+$Script:RecoveryOsType = "latest"
 $Script:TempDirs = @()
 $Script:AnsiColorInitialized = $false
 $Script:UseAnsiColor = $false
@@ -159,12 +164,14 @@ function Show-Usage {
   powershell -ExecutionPolicy Bypass -File .\script\install-efi-to-usb.ps1 -DriveLetter E -Source .\all_efi\igpu\13.7.8\EFI -Yes
 
 说明：
-  - 这个脚本用于在 Windows 上把 OpenCore EFI 安装到 U 盘。
+  - 这个脚本用于在 Windows 上把 OpenCore EFI 和 macOS Recovery 安装到 U 盘。
   - 在线运行时会从 GitHub Release 下载 Ventura 13.7.8 igpu / safe EFI。
+  - 如果 U 盘缺少 com.apple.recovery.boot，会从 Apple 下载 BaseSystem.dmg 和 BaseSystem.chunklist。
   - 本地 clone 仓库运行时，也可以选择本地 all_efi 目录里的 EFI。
   - 脚本不会格式化 U 盘，只会更新 U 盘里的 EFI\BOOT 和 EFI\OC。
   - 已有 EFI\BOOT / EFI\OC 会先备份到 EFI\backup-before-opencore-时间。
   - EFI\APPLE 会保留。
+  - -NoRecovery 只安装 EFI；-ForceRecovery 强制重新下载 Recovery。
   - 默认来源是 GitHub Ventura 13.7.8 igpu 核显加速版。
   - 目标 U 盘建议使用 FAT32；非 FAT32 默认会停止。
 '@
@@ -322,6 +329,304 @@ function Invoke-DownloadFile {
     } finally {
         $ProgressPreference = $oldProgressPreference
     }
+}
+
+function New-HexString {
+    param([int]$Length)
+
+    -join (1..$Length | ForEach-Object { "{0:X}" -f (Get-Random -Minimum 0 -Maximum 16) })
+}
+
+function Invoke-AppleRecoveryRequest {
+    param(
+        [string]$Url,
+        [string]$Method = "GET",
+        [string]$Body = "",
+        [string]$Cookie = ""
+    )
+
+    $request = [System.Net.HttpWebRequest]::Create($Url)
+    $request.Method = $Method
+    $request.UserAgent = "InternetRecovery/1.0"
+    $request.KeepAlive = $false
+    $request.Host = ([Uri]$Url).Host
+
+    if (-not [string]::IsNullOrWhiteSpace($Cookie)) {
+        $request.Headers.Add("Cookie", $Cookie)
+    }
+
+    if ($Method -eq "POST") {
+        $bytes = [System.Text.Encoding]::ASCII.GetBytes($Body)
+        $request.ContentType = "text/plain"
+        $request.ContentLength = $bytes.Length
+        $stream = $request.GetRequestStream()
+        try {
+            $stream.Write($bytes, 0, $bytes.Length)
+        } finally {
+            $stream.Close()
+        }
+    }
+
+    $response = $request.GetResponse()
+    try {
+        $reader = New-Object System.IO.StreamReader($response.GetResponseStream(), [System.Text.Encoding]::ASCII)
+        [pscustomobject]@{
+            Headers = $response.Headers
+            Body = $reader.ReadToEnd()
+            StatusCode = [int]$response.StatusCode
+        }
+    } finally {
+        $response.Close()
+    }
+}
+
+function Get-AppleRecoveryInfo {
+    Write-Info "查询 Apple Recovery：Ventura 13.7.8"
+
+    try {
+        $sessionResponse = Invoke-AppleRecoveryRequest -Url "http://osrecovery.apple.com/"
+        $sessionCookie = ($sessionResponse.Headers["Set-Cookie"] -split "; " |
+            Where-Object { $_ -like "session=*" } |
+            Select-Object -First 1)
+
+        if ([string]::IsNullOrWhiteSpace($sessionCookie)) {
+            throw "Apple Recovery 没有返回 session cookie。"
+        }
+
+        $post = [ordered]@{
+            cid = New-HexString 16
+            sn = $Script:RecoveryMlb
+            bid = $Script:RecoveryBoardId
+            k = New-HexString 64
+            fg = New-HexString 64
+            os = $Script:RecoveryOsType
+        }
+        $body = ($post.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join "`n"
+
+        $imageResponse = Invoke-AppleRecoveryRequest `
+            -Url "http://osrecovery.apple.com/InstallationPayload/RecoveryImage" `
+            -Method "POST" `
+            -Body $body `
+            -Cookie $sessionCookie
+
+        $info = @{}
+        foreach ($line in ($imageResponse.Body -split "`n")) {
+            if ($line -match "^([^:]+):\s*(.+)$") {
+                $info[$matches[1]] = $matches[2].Trim()
+            }
+        }
+
+        foreach ($key in @("AP", "AU", "AH", "AT", "CU", "CH", "CT")) {
+            if (-not $info.ContainsKey($key)) {
+                throw "Apple Recovery 响应缺少字段：$key"
+            }
+        }
+
+        return [pscustomobject]@{
+            Product = $info["AP"]
+            DmgUrl = $info["AU"]
+            DmgSha256 = $info["AH"].ToLowerInvariant()
+            DmgToken = $info["AT"]
+            ChunklistUrl = $info["CU"]
+            ChunklistSha256 = $info["CH"].ToLowerInvariant()
+            ChunklistToken = $info["CT"]
+        }
+    } catch {
+        throw "Apple Recovery 查询失败：$($_.Exception.Message)"
+    }
+}
+
+function Invoke-AppleAssetDownload {
+    param(
+        [string]$Url,
+        [string]$AssetToken,
+        [string]$OutFile,
+        [string]$Label
+    )
+
+    $fileName = Split-Path -Leaf $OutFile
+    Write-Info ("下载 {0}：{1}" -f $Label, $fileName)
+
+    $uri = [Uri]$Url
+    $request = [System.Net.HttpWebRequest]::Create($Url)
+    $request.Method = "GET"
+    $request.UserAgent = "InternetRecovery/1.0"
+    $request.KeepAlive = $false
+    $request.Host = $uri.Host
+    $request.Headers.Add("Cookie", ("AssetToken={0}" -f $AssetToken))
+
+    $response = $request.GetResponse()
+    try {
+        $total = $response.ContentLength
+        $inputStream = $response.GetResponseStream()
+        $outputStream = [System.IO.File]::Open($OutFile, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+        try {
+            $buffer = New-Object byte[] (1024 * 1024)
+            $done = [int64]0
+            $lastPercent = -1
+
+            while ($true) {
+                $read = $inputStream.Read($buffer, 0, $buffer.Length)
+                if ($read -le 0) {
+                    break
+                }
+
+                $outputStream.Write($buffer, 0, $read)
+                $done += $read
+
+                if ($total -gt 0) {
+                    $percent = [int][math]::Floor(($done * 100.0) / $total)
+                    if ($percent -ge 100 -or $percent -ge ($lastPercent + 10)) {
+                        $lastPercent = $percent
+                        Write-Info ("{0} 下载进度：{1:N1} / {2:N1} MB ({3}%)" -f $fileName, ($done / 1MB), ($total / 1MB), $percent)
+                    }
+                }
+            }
+        } finally {
+            $outputStream.Close()
+            $inputStream.Close()
+        }
+    } finally {
+        $response.Close()
+    }
+}
+
+function Assert-FileSha256 {
+    param(
+        [string]$Path,
+        [string]$ExpectedSha256,
+        [string]$Label
+    )
+
+    $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
+        throw "$Label SHA256 校验失败。期望：$ExpectedSha256，实际：$actual"
+    }
+
+    Write-Ok "$Label SHA256 校验通过"
+}
+
+function Get-ChunklistEntries {
+    param([string]$Path)
+
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -lt 36) {
+        throw "chunklist 文件太小：$Path"
+    }
+
+    $magic = [System.Text.Encoding]::ASCII.GetString($bytes, 0, 4)
+    $headerSize = [System.BitConverter]::ToUInt32($bytes, 4)
+    $fileVersion = $bytes[8]
+    $chunkMethod = $bytes[9]
+    $chunkCount = [System.BitConverter]::ToUInt64($bytes, 12)
+    $chunkOffset = [System.BitConverter]::ToUInt64($bytes, 20)
+    $signatureOffset = [System.BitConverter]::ToUInt64($bytes, 28)
+
+    if ($magic -ne "CNKL") {
+        throw "chunklist magic 不正确。"
+    }
+    if ($headerSize -ne 36 -or $fileVersion -ne 1 -or $chunkMethod -ne 1) {
+        throw "chunklist 格式不受支持。"
+    }
+    if ($chunkOffset -ne 36) {
+        throw "chunklist chunk offset 不正确。"
+    }
+    if ($signatureOffset -ne ($chunkOffset + 36 * $chunkCount)) {
+        throw "chunklist signature offset 不正确。"
+    }
+    if ($bytes.Length -lt $signatureOffset) {
+        throw "chunklist 文件不完整。"
+    }
+
+    $entries = @()
+    $offset = [int]$chunkOffset
+    for ($i = 0; $i -lt $chunkCount; $i++) {
+        $size = [System.BitConverter]::ToUInt32($bytes, $offset)
+        $hashBytes = New-Object byte[] 32
+        [System.Array]::Copy($bytes, $offset + 4, $hashBytes, 0, 32)
+        $entries += [pscustomobject]@{
+            Size = [int]$size
+            Hash = ([System.BitConverter]::ToString($hashBytes) -replace "-", "").ToLowerInvariant()
+        }
+        $offset += 36
+    }
+
+    return $entries
+}
+
+function Read-ExactBytes {
+    param(
+        [System.IO.Stream]$Stream,
+        [int]$Size
+    )
+
+    $buffer = New-Object byte[] $Size
+    $offset = 0
+    while ($offset -lt $Size) {
+        $read = $Stream.Read($buffer, $offset, $Size - $offset)
+        if ($read -le 0) {
+            break
+        }
+        $offset += $read
+    }
+
+    if ($offset -ne $Size) {
+        return $null
+    }
+
+    return $buffer
+}
+
+function Assert-RecoveryImageWithChunklist {
+    param(
+        [string]$DmgPath,
+        [string]$ChunklistPath
+    )
+
+    Write-Info "校验 BaseSystem.dmg：按 chunklist 逐块验证"
+    $entries = @(Get-ChunklistEntries -Path $ChunklistPath)
+    if ($entries.Count -eq 0) {
+        throw "chunklist 没有可校验的 chunk。"
+    }
+
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    $stream = [System.IO.File]::OpenRead($DmgPath)
+    try {
+        $total = ($entries | Measure-Object -Property Size -Sum).Sum
+        $done = [int64]0
+        $lastPercent = -1
+
+        for ($i = 0; $i -lt $entries.Count; $i++) {
+            $entry = $entries[$i]
+            $chunk = Read-ExactBytes -Stream $stream -Size $entry.Size
+            if ($null -eq $chunk) {
+                throw "BaseSystem.dmg 不完整：chunk $($i + 1) 读取失败。"
+            }
+
+            $actual = ([System.BitConverter]::ToString($sha256.ComputeHash($chunk)) -replace "-", "").ToLowerInvariant()
+            if ($actual -ne $entry.Hash) {
+                throw "BaseSystem.dmg 校验失败：chunk $($i + 1) hash 不匹配。"
+            }
+
+            $done += $entry.Size
+            if ($total -gt 0) {
+                $percent = [int][math]::Floor(($done * 100.0) / $total)
+                if ($percent -ge 100 -or $percent -ge ($lastPercent + 20)) {
+                    $lastPercent = $percent
+                    Write-Info ("校验进度：{0:N1} / {1:N1} MB ({2}%)" -f ($done / 1MB), ($total / 1MB), $percent)
+                }
+            }
+        }
+
+        if ($stream.ReadByte() -ne -1) {
+            throw "BaseSystem.dmg 比 chunklist 描述更大，文件可能不匹配。"
+        }
+    } finally {
+        $stream.Close()
+        $sha256.Dispose()
+    }
+
+    Write-Ok "BaseSystem.dmg chunklist 校验通过"
 }
 
 function Expand-ZipSafe {
@@ -609,6 +914,29 @@ function Test-Fat32Target {
     Stop-WithError "$($Drive.DeviceID) 当前格式是 $($Drive.FileSystem)，不是 FAT32。OpenCore UEFI 启动盘建议使用 FAT32，请先格式化或给 EFI 分区分配盘符。"
 }
 
+function Get-DriveRoot {
+    param([object]$Drive)
+    return ($Drive.DeviceID + "\")
+}
+
+function Get-RecoveryBootPath {
+    param([object]$Drive)
+    return (Join-Path (Get-DriveRoot $Drive) "com.apple.recovery.boot")
+}
+
+function Test-RecoveryBootComplete {
+    param([object]$Drive)
+
+    $path = Get-RecoveryBootPath $Drive
+    $dmg = Join-Path $path "BaseSystem.dmg"
+    $chunklist = Join-Path $path "BaseSystem.chunklist"
+
+    return ((Test-Path -LiteralPath $dmg -PathType Leaf) -and
+            (Test-Path -LiteralPath $chunklist -PathType Leaf) -and
+            ((Get-Item -LiteralPath $dmg).Length -gt 0) -and
+            ((Get-Item -LiteralPath $chunklist).Length -gt 0))
+}
+
 function Assert-UnderRoot {
     param(
         [string]$Path,
@@ -641,10 +969,22 @@ function Confirm-Install {
     Write-HostSafe ("  目标 U 盘：{0}\  {1}  {2}" -f $Drive.DeviceID, $Drive.VolumeName, $Drive.FileSystem)
     Write-HostSafe ("  来源 EFI ：{0}" -f $SourcePath)
     Write-HostSafe ("  模式     ：{0}" -f $Script:SelectedMode)
+    if ($NoRecovery) {
+        Write-HostSafe "  Recovery ：跳过（-NoRecovery）"
+    } elseif ($ForceRecovery) {
+        Write-HostSafe "  Recovery ：强制重新下载 macOS Recovery"
+    } elseif (Test-RecoveryBootComplete $Drive) {
+        Write-HostSafe "  Recovery ：已存在，保留"
+    } else {
+        Write-HostSafe "  Recovery ：缺失，将从 Apple 下载 BaseSystem.dmg / BaseSystem.chunklist"
+    }
     Write-Line
     Write-Warn "将替换目标 U 盘里的 EFI\BOOT 和 EFI\OC"
     Write-Warn "旧 BOOT / OC 会自动备份"
     Write-Warn "EFI\APPLE 和其他文件不会删除"
+    if (-not $NoRecovery) {
+        Write-Warn "缺少 macOS Recovery 时会写入 com.apple.recovery.boot"
+    }
     Write-Line
 
     $answer = Read-Host "继续安装？[Y/n]"
@@ -655,6 +995,61 @@ function Confirm-Install {
     if ($answer -notin @("y", "Y", "yes", "YES")) {
         Write-Line "已取消，没有修改 U 盘。"
         exit 0
+    }
+}
+
+function Ensure-RecoveryBoot {
+    param([object]$Drive)
+
+    if ($NoRecovery) {
+        Write-Warn "已指定 -NoRecovery，跳过 macOS Recovery 镜像。"
+        return
+    }
+
+    $root = Get-DriveRoot $Drive
+    $targetRecovery = Get-RecoveryBootPath $Drive
+    $targetDmg = Join-Path $targetRecovery "BaseSystem.dmg"
+    $targetChunklist = Join-Path $targetRecovery "BaseSystem.chunklist"
+
+    Assert-UnderRoot -Path $targetRecovery -Root $root
+    Assert-UnderRoot -Path $targetDmg -Root $root
+    Assert-UnderRoot -Path $targetChunklist -Root $root
+
+    if ((Test-RecoveryBootComplete $Drive) -and -not $ForceRecovery) {
+        Write-Ok "macOS Recovery 已存在，保留：$targetRecovery"
+        return
+    }
+
+    Write-Section "准备 macOS Recovery"
+    if ($ForceRecovery -and (Test-Path -LiteralPath $targetRecovery)) {
+        Write-Warn "将覆盖现有 com.apple.recovery.boot 中的 BaseSystem 文件。"
+    }
+
+    New-Item -ItemType Directory -Path $targetRecovery -Force | Out-Null
+
+    $tempRecovery = Join-Path (New-WorkDir) "com.apple.recovery.boot"
+    New-Item -ItemType Directory -Path $tempRecovery -Force | Out-Null
+    $tempDmg = Join-Path $tempRecovery "BaseSystem.dmg"
+    $tempChunklist = Join-Path $tempRecovery "BaseSystem.chunklist"
+
+    try {
+        $info = Get-AppleRecoveryInfo
+        Write-Ok ("Apple Recovery 产品：{0}" -f $info.Product)
+
+        Invoke-AppleAssetDownload -Url $info.ChunklistUrl -AssetToken $info.ChunklistToken -OutFile $tempChunklist -Label "Apple Recovery"
+        $entries = @(Get-ChunklistEntries -Path $tempChunklist)
+        Write-Ok ("BaseSystem.chunklist 解析通过：{0} 个 chunk" -f $entries.Count)
+
+        Invoke-AppleAssetDownload -Url $info.DmgUrl -AssetToken $info.DmgToken -OutFile $tempDmg -Label "Apple Recovery"
+        Assert-RecoveryImageWithChunklist -DmgPath $tempDmg -ChunklistPath $tempChunklist
+
+        Copy-Item -LiteralPath $tempChunklist -Destination $targetChunklist -Force
+        Copy-Item -LiteralPath $tempDmg -Destination $targetDmg -Force
+        Write-Ok "已写入 macOS Recovery：$targetRecovery"
+    } catch {
+        Remove-Item -LiteralPath $tempDmg -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $tempChunklist -Force -ErrorAction SilentlyContinue
+        Stop-WithError $_.Exception.Message
     }
 }
 
@@ -679,7 +1074,7 @@ function Install-EfiToUsb {
         [string]$SourcePath
     )
 
-    $root = $Drive.DeviceID + "\"
+    $root = Get-DriveRoot $Drive
     $targetEfi = Join-Path $root "EFI"
     $targetBoot = Join-Path $targetEfi "BOOT"
     $targetOc = Join-Path $targetEfi "OC"
@@ -738,8 +1133,8 @@ function Install-EfiToUsb {
     Write-Ok "已复制 OC"
     Write-Ok "U 盘 EFI 安装完成"
     Write-Line
-    Write-HostSafe "当前 U 盘 EFI 内容："
-    Get-ChildItem -LiteralPath $targetEfi -Force | Sort-Object Name | ForEach-Object {
+    Write-HostSafe "当前 U 盘根目录内容："
+    Get-ChildItem -LiteralPath $root -Force | Sort-Object Name | ForEach-Object {
         Write-HostSafe ("  {0}" -f $_.Name)
     }
     Write-Line
@@ -765,6 +1160,7 @@ try {
 
     Confirm-Install -Drive $drive -SourcePath $sourcePath
     Install-EfiToUsb -Drive $drive -SourcePath $sourcePath
+    Ensure-RecoveryBoot -Drive $drive
 } finally {
     Clear-WorkDirs
 }
