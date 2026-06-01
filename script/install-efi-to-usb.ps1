@@ -29,10 +29,25 @@ if ($repoRoot) {
 }
 
 if (-not $tempCore) {
-    $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("hp-prodesk-usb-launcher-" + [System.Guid]::NewGuid().ToString("N"))
+    $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("hpoc-l-" + [System.Guid]::NewGuid().ToString("N").Substring(0, 8))
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
     $tempCore = Join-Path $tempDir "install-efi-to-usb-core.ps1"
-    Invoke-WebRequest -Uri $coreUrl -OutFile $tempCore -UseBasicParsing
+    $coreDownloadUrl = $coreUrl + "?cacheBust=" + [System.Guid]::NewGuid().ToString("N")
+    $headers = @{
+        "Cache-Control" = "no-cache"
+        "Pragma" = "no-cache"
+    }
+    $oldProgressPreference = $ProgressPreference
+    $ProgressPreference = "SilentlyContinue"
+    try {
+        try {
+            Invoke-WebRequest -Uri $coreDownloadUrl -OutFile $tempCore -UseBasicParsing -Headers $headers
+        } catch {
+            Invoke-WebRequest -Uri $coreUrl -OutFile $tempCore -UseBasicParsing -Headers $headers
+        }
+    } finally {
+        $ProgressPreference = $oldProgressPreference
+    }
 }
 
 $coreParams = @{}

@@ -32,50 +32,65 @@ $Script:RepoUrl = "https://github.com/JunWan666/hp-prodesk-600-g4-efi"
 $Script:RawBaseUrl = "https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main"
 $Script:TempDirs = @()
 
+function Write-HostSafe {
+    param(
+        [AllowNull()][object]$Text = "",
+        [string]$ForegroundColor = ""
+    )
+
+    $message = if ($null -eq $Text) { "" } else { [string]$Text }
+
+    try {
+        Write-Host $message
+    } catch {
+        [System.Console]::WriteLine($message)
+    }
+}
+
 function Write-Line {
     param([string]$Text = "")
-    Write-Host $Text
+    Write-HostSafe $Text
 }
 
 function Write-Info {
     param([string]$Text)
-    Write-Host ("==> {0}" -f $Text) -ForegroundColor Blue
+    Write-HostSafe ("==> {0}" -f $Text) "Blue"
 }
 
 function Write-Ok {
     param([string]$Text)
-    Write-Host ("OK  {0}" -f $Text) -ForegroundColor Green
+    Write-HostSafe ("OK  {0}" -f $Text) "Green"
 }
 
 function Write-Warn {
-    param([string]$Text)
-    Write-Host ("!!  {0}" -f $Text) -ForegroundColor Yellow
+    param([AllowNull()][object]$Text)
+    Write-HostSafe ("!!  {0}" -f $Text) "Yellow"
 }
 
 function Stop-WithError {
     param([string]$Text)
-    Write-Host ("错误：{0}" -f $Text) -ForegroundColor Red
+    Write-HostSafe ("错误：{0}" -f $Text) "Red"
     exit 1
 }
 
 function Write-Rule {
-    Write-Host "──────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
+    Write-HostSafe "──────────────────────────────────────────────────────────────" "DarkGray"
 }
 
 function Write-Section {
     param([string]$Title)
     Write-Line
     Write-Rule
-    Write-Host "  $Title" -ForegroundColor White
+    Write-HostSafe "  $Title" "White"
     Write-Rule
 }
 
 function Show-Banner {
-    Write-Host "╭────────────────────────────────────────────────────────────╮" -ForegroundColor Cyan
-    Write-Host "│  HP ProDesk 600 G4 DM                                      │" -ForegroundColor Cyan
-    Write-Host "│  OpenCore EFI USB Installer                                │" -ForegroundColor Cyan
-    Write-Host "│  Windows · Ventura 13.7.8 · safe / igpu · DW1820A Ready    │" -ForegroundColor Cyan
-    Write-Host "╰────────────────────────────────────────────────────────────╯" -ForegroundColor Cyan
+    Write-HostSafe "╭────────────────────────────────────────────────────────────╮" "Cyan"
+    Write-HostSafe "│  HP ProDesk 600 G4 DM                                      │" "Cyan"
+    Write-HostSafe "│  OpenCore EFI USB Installer                                │" "Cyan"
+    Write-HostSafe "│  Windows · Ventura 13.7.8 · safe / igpu · DW1820A Ready    │" "Cyan"
+    Write-HostSafe "╰────────────────────────────────────────────────────────────╯" "Cyan"
     Write-Line
 }
 
@@ -98,7 +113,7 @@ function Show-Usage {
   - 默认来源是 GitHub Ventura 13.7.8 igpu 核显加速版。
   - 目标 U 盘建议使用 FAT32；非 FAT32 默认会停止。
 '@
-    Write-Host $usage
+    Write-HostSafe $usage
 }
 
 function Get-ReleaseSourceOptions {
@@ -215,7 +230,7 @@ function Resolve-EfiSource {
 }
 
 function New-WorkDir {
-    $base = Join-Path ([System.IO.Path]::GetTempPath()) ("hp-prodesk-efi-usb-" + [System.Guid]::NewGuid().ToString("N"))
+    $base = Join-Path ([System.IO.Path]::GetTempPath()) ("hpoc-e-" + [System.Guid]::NewGuid().ToString("N").Substring(0, 8))
     New-Item -ItemType Directory -Path $base -Force | Out-Null
     $Script:TempDirs += $base
     return $base
@@ -239,11 +254,18 @@ function Invoke-DownloadFile {
         [string]$OutFile
     )
 
-    Write-Info "下载：$Url"
+    $fileName = Split-Path -Leaf $OutFile
+    $sourceName = if ($Url -like "$($Script:RepoUrl)*") { "GitHub Release" } else { "GitHub Raw 备用" }
+    Write-Info ("下载 {0}：{1}" -f $sourceName, $fileName)
+
+    $oldProgressPreference = $ProgressPreference
+    $ProgressPreference = "SilentlyContinue"
     try {
         Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing
     } catch {
         throw "下载失败：$($_.Exception.Message)"
+    } finally {
+        $ProgressPreference = $oldProgressPreference
     }
 }
 
@@ -312,7 +334,7 @@ function Download-ReleaseEfi {
             $downloaded = $true
             break
         } catch {
-            Write-Warn $_
+            Write-Warn $_.Exception.Message
         }
     }
 
@@ -352,19 +374,19 @@ function Select-EfiSource {
         Write-Section "选择 EFI 来源"
         $options = @(Get-SourceOptions)
         foreach ($option in $options) {
-            $prefix = if ($option.Index -eq 1) { "[默认]" } else { "      " }
-            Write-Host ("  {0} {1}) {2}" -f $prefix, $option.Index, $option.Name) -ForegroundColor Green
-            Write-Host ("          {0}" -f $option.Desc)
+            $suffix = if ($option.Index -eq 1) { " [默认]" } else { "" }
+            Write-HostSafe ("  {0}. {1}{2}" -f $option.Index, $option.Name, $suffix) "Green"
+            Write-HostSafe ("     {0}" -f $option.Desc)
             if ($option.Kind -eq "Release") {
-                Write-Host ("          {0}" -f (Get-ReleaseAssetUrl $option.FileName)) -ForegroundColor DarkGray
+                Write-HostSafe ("     文件：{0}" -f $option.FileName) "DarkGray"
             } else {
-                Write-Host ("          {0}" -f $option.Path) -ForegroundColor DarkGray
+                Write-HostSafe ("     路径：{0}" -f $option.Path) "DarkGray"
             }
             Write-Line
         }
         $manualIndex = $options.Count + 1
-        Write-Host ("        {0}) 手动输入 EFI 路径" -f $manualIndex)
-        Write-Host "        0) 退出"
+        Write-HostSafe ("  {0}. 手动输入 EFI 路径" -f $manualIndex)
+        Write-HostSafe "  0. 退出"
         Write-Line
 
         $choice = Read-Host "请选择 EFI 来源 [1]"
@@ -486,10 +508,10 @@ function Select-UsbDrive {
             $fs = if ($drive.FileSystem) { $drive.FileSystem } else { "未知格式" }
             $size = Convert-Size $drive.Size
             $free = Convert-Size $drive.FreeSpace
-            $prefix = if ($index -eq 1) { "[默认]" } else { "      " }
-            Write-Host ("  {0} {1}) {2}\  {3}  {4}  总计 {5}  可用 {6}" -f $prefix, $index, $drive.DeviceID, $label, $fs, $size, $free)
+            $suffix = if ($index -eq 1) { " [默认]" } else { "" }
+            Write-HostSafe ("  {0}. {1}\  {2}  {3}  总计 {4}  可用 {5}{6}" -f $index, $drive.DeviceID, $label, $fs, $size, $free, $suffix)
         }
-        Write-Host "        0) 退出"
+        Write-HostSafe "  0. 退出"
         Write-Line
 
         $choice = Read-Host "请选择目标 U 盘 [1]"
@@ -561,9 +583,9 @@ function Confirm-Install {
     }
 
     Write-Section "安装确认"
-    Write-Host ("  目标 U 盘：{0}\  {1}  {2}" -f $Drive.DeviceID, $Drive.VolumeName, $Drive.FileSystem)
-    Write-Host ("  来源 EFI ：{0}" -f $SourcePath)
-    Write-Host ("  模式     ：{0}" -f $Script:SelectedMode)
+    Write-HostSafe ("  目标 U 盘：{0}\  {1}  {2}" -f $Drive.DeviceID, $Drive.VolumeName, $Drive.FileSystem)
+    Write-HostSafe ("  来源 EFI ：{0}" -f $SourcePath)
+    Write-HostSafe ("  模式     ：{0}" -f $Script:SelectedMode)
     Write-Line
     Write-Warn "将替换目标 U 盘里的 EFI\BOOT 和 EFI\OC"
     Write-Warn "旧 BOOT / OC 会自动备份"
@@ -661,12 +683,12 @@ function Install-EfiToUsb {
     Write-Ok "已复制 OC"
     Write-Ok "U 盘 EFI 安装完成"
     Write-Line
-    Write-Host "当前 U 盘 EFI 内容："
+    Write-HostSafe "当前 U 盘 EFI 内容："
     Get-ChildItem -LiteralPath $targetEfi -Force | Sort-Object Name | ForEach-Object {
-        Write-Host ("  {0}" -f $_.Name)
+        Write-HostSafe ("  {0}" -f $_.Name)
     }
     Write-Line
-    Write-Host "完成。现在可以安全弹出 U 盘，然后用它启动 HP ProDesk 600 G4 DM。" -ForegroundColor Green
+    Write-HostSafe "完成。现在可以安全弹出 U 盘，然后用它启动 HP ProDesk 600 G4 DM。" "Green"
 }
 
 if ($Help) {
