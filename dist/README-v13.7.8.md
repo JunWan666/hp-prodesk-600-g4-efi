@@ -1,6 +1,24 @@
 # HP ProDesk 600 G4 DM OpenCore EFI - Ventura 13.7.8
 
-这是 HP ProDesk 600 G4 Desktop Mini 的 macOS Ventura 13.7.8 OpenCore EFI。当前版本是本仓库推荐日用版本，已验证可以进入 macOS Ventura 13.7.8；UHD 630 核显加速已通过 DP 直连显示器验证，主动式 DP 转 HDMI 也已验证可用；Dell DW1820A / Broadcom BCM94350ZAE 无线网卡和蓝牙已验证可用。
+这是 HP ProDesk 600 G4 Desktop Mini 的 macOS Ventura 13.7.8 OpenCore EFI Release。当前版本已验证可以进入 macOS Ventura 13.7.8，支持 UHD 630 核显加速，并已加入 Dell DW1820A / Broadcom BCM94350ZAE 无线网卡和蓝牙驱动。
+
+> 本次重新打包修复了旧 ZIP 在 macOS 自带 `unzip` 下可能因为 Windows 反斜杠路径导致解压失败的问题。新版 ZIP 内部路径已经改为 `EFI/OC/...`，可直接在 macOS 解压使用。
+
+## 本次上传文件
+
+请在 GitHub Release `v13.7.8` 里上传下面两个 ZIP：
+
+| 文件 | 模式 | 适合场景 | SHA256 |
+| --- | --- | --- | --- |
+| `hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip` | 核显加速版 | 推荐日用；需要 DP 直连显示器，或主动式 DP 转 HDMI | `10b10e6c30f986c16f1e4cbbfef35cfe80cd2791d33d5881f4731a81cfa03f97` |
+| `hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip` | 安全亮屏版 | 首次安装、黑屏救援、显示器线材不确定 | `0232d1dba1a4b754cb3b8777ffb2c4ad4c5b7da8d51631c53fd6d4e8c9ba0fa4` |
+
+对应本地文件位置：
+
+```text
+dist/hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip
+dist/hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
+```
 
 ## 适用硬件
 
@@ -16,13 +34,6 @@
 | OpenCore | 1.0.7 |
 
 同为 HP ProDesk 600 G4 DM，也可能因为 CPU、网卡、无线网卡、显示输出模块不同而需要调整。不同硬件请先备份原 EFI 再测试。
-
-## 本 Release 附件
-
-| 文件 | 模式 | 适合场景 |
-| --- | --- | --- |
-| `hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip` | 核显加速版 | 推荐日用；需要 DP 直连显示器，或主动式 DP 转 HDMI；包含 DW1820A 无线驱动 |
-| `hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip` | 安全亮屏版 | 首次安装、黑屏救援、排查显示输出问题；包含 DW1820A 无线驱动 |
 
 ## 怎么选择
 
@@ -56,13 +67,20 @@
 4. 第一次替换 EFI 后，建议在 OpenCore 界面执行一次 `Reset NVRAM`。
 5. 进入系统后确认显卡、网卡、USB、声音等功能。
 
-如果你已经能通过 U 盘进入 macOS，可以用仓库脚本把当前 U 盘 EFI 复制到内置硬盘 EFI 分区。推荐直接使用交互菜单：
+如果已经能通过 U 盘进入 macOS，可以用仓库脚本把当前 U 盘 EFI 复制到内置硬盘 EFI 分区：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install.sh | sh
 ```
 
-脚本会自动识别唯一的内置硬盘 EFI 分区。选择来源时直接回车就是使用当前 U 盘 EFI；也可以选择从 GitHub 下载 `igpu` 核显加速版或 `safe` 安全亮屏版。
+脚本会自动识别唯一的内置硬盘 EFI 分区。选择来源时：
+
+- 直接回车：使用当前 U 盘 EFI。
+- 输入 `2`：从 GitHub 下载 `igpu` 核显加速版。
+- 输入 `3`：从 GitHub 下载 `safe` 安全亮屏版。
+- 输入 `4`：手动输入 EFI 路径。
+
+安装确认页直接回车等同于 `Y`，输入 `n` 才取消。
 
 如果自动识别失败，先在 macOS 里确认磁盘：
 
