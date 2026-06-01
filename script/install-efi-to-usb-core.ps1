@@ -31,6 +31,56 @@ $Script:ReleaseTag = "v13.7.8"
 $Script:RepoUrl = "https://github.com/JunWan666/hp-prodesk-600-g4-efi"
 $Script:RawBaseUrl = "https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main"
 $Script:TempDirs = @()
+$Script:AnsiColorInitialized = $false
+$Script:UseAnsiColor = $false
+$Script:AnsiReset = "$([char]27)[0m"
+$Script:AnsiColors = @{
+    Blue = "$([char]27)[34m"
+    Green = "$([char]27)[32m"
+    Yellow = "$([char]27)[33m"
+    Red = "$([char]27)[31m"
+    DarkGray = "$([char]27)[90m"
+    White = "$([char]27)[37m"
+    Cyan = "$([char]27)[36m"
+}
+
+function Initialize-AnsiColor {
+    if ($Script:AnsiColorInitialized) {
+        return
+    }
+
+    $Script:AnsiColorInitialized = $true
+    if ($env:NO_COLOR) {
+        return
+    }
+
+    if ($env:WT_SESSION -or $env:TERM_PROGRAM -or ($env:TERM -match "xterm|ansi|vt100|color")) {
+        $Script:UseAnsiColor = $true
+        return
+    }
+
+    try {
+        if (-not ("HpocConsoleMode" -as [type])) {
+            Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class HpocConsoleMode {
+    [DllImport("kernel32.dll")] public static extern IntPtr GetStdHandle(int nStdHandle);
+    [DllImport("kernel32.dll")] public static extern bool GetConsoleMode(IntPtr hConsoleHandle, out int lpMode);
+    [DllImport("kernel32.dll")] public static extern bool SetConsoleMode(IntPtr hConsoleHandle, int dwMode);
+}
+"@ -ErrorAction Stop
+        }
+
+        $handle = [HpocConsoleMode]::GetStdHandle(-11)
+        $mode = 0
+        if ([HpocConsoleMode]::GetConsoleMode($handle, [ref]$mode)) {
+            $Script:UseAnsiColor = [HpocConsoleMode]::SetConsoleMode($handle, ($mode -bor 4))
+        }
+    } catch {
+        $Script:UseAnsiColor = $false
+    }
+}
 
 function Write-HostSafe {
     param(
@@ -39,6 +89,11 @@ function Write-HostSafe {
     )
 
     $message = if ($null -eq $Text) { "" } else { [string]$Text }
+    Initialize-AnsiColor
+
+    if ($Script:UseAnsiColor -and $Script:AnsiColors.ContainsKey($Color)) {
+        $message = "{0}{1}{2}" -f $Script:AnsiColors[$Color], $message, $Script:AnsiReset
+    }
 
     try {
         Write-Host $message
