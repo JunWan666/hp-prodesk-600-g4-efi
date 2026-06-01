@@ -39,26 +39,22 @@ function Write-Line {
 
 function Write-Info {
     param([string]$Text)
-    Write-Host "==> " -NoNewline -ForegroundColor Blue
-    Write-Host $Text
+    Write-Host ("==> {0}" -f $Text) -ForegroundColor Blue
 }
 
 function Write-Ok {
     param([string]$Text)
-    Write-Host "OK  " -NoNewline -ForegroundColor Green
-    Write-Host $Text
+    Write-Host ("OK  {0}" -f $Text) -ForegroundColor Green
 }
 
 function Write-Warn {
     param([string]$Text)
-    Write-Host "!!  " -NoNewline -ForegroundColor Yellow
-    Write-Host $Text
+    Write-Host ("!!  {0}" -f $Text) -ForegroundColor Yellow
 }
 
 function Stop-WithError {
     param([string]$Text)
-    Write-Host "错误：" -NoNewline -ForegroundColor Red
-    Write-Host $Text
+    Write-Host ("错误：{0}" -f $Text) -ForegroundColor Red
     exit 1
 }
 
