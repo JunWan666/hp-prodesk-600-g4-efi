@@ -35,7 +35,7 @@ $Script:TempDirs = @()
 function Write-HostSafe {
     param(
         [AllowNull()][object]$Text = "",
-        [string]$ForegroundColor = ""
+        [string]$Color = ""
     )
 
     $message = if ($null -eq $Text) { "" } else { [string]$Text }
