@@ -975,12 +975,48 @@ function Format-UsbDrive {
     }
 
     Write-Info ("格式化 {0} 为 FAT32 / OPENCORE" -f $Drive.DeviceID)
+    $letter = $Drive.DeviceID.TrimEnd(":")
+    $formatErrors = @()
+    $formatted = $false
+
     try {
-        $letter = $Drive.DeviceID.TrimEnd(":")
         $partition = Get-Partition -DriveLetter $letter -ErrorAction Stop
         Format-Volume -Partition $partition -FileSystem FAT32 -NewFileSystemLabel "OPENCORE" -Force -Confirm:$false | Out-Null
+        $formatted = $true
     } catch {
-        Stop-WithError "格式化失败：$($_.Exception.Message)"
+        $formatErrors += "Storage 模块：$($_.Exception.Message)"
+    }
+
+    if (-not $formatted) {
+        try {
+            $escapedDeviceId = $Drive.DeviceID.Replace("'", "''")
+            $volume = Get-CimInstance Win32_Volume -Filter ("DriveLetter = '{0}'" -f $escapedDeviceId) -ErrorAction Stop |
+                Select-Object -First 1
+
+            if (-not $volume) {
+                throw "没有找到 Win32_Volume：$($Drive.DeviceID)"
+            }
+
+            $result = Invoke-CimMethod -InputObject $volume -MethodName Format -Arguments @{
+                FileSystem = "FAT32"
+                QuickFormat = $true
+                ClusterSize = 4096
+                Label = "OPENCORE"
+                EnableCompression = $false
+            } -ErrorAction Stop
+
+            if ($result.ReturnValue -ne 0) {
+                throw "Win32_Volume.Format 返回代码：$($result.ReturnValue)"
+            }
+
+            $formatted = $true
+        } catch {
+            $formatErrors += "WMI Win32_Volume：$($_.Exception.Message)"
+        }
+    }
+
+    if (-not $formatted) {
+        Stop-WithError ("格式化失败。{0}" -f ($formatErrors -join "；"))
     }
 
     Start-Sleep -Seconds 2
