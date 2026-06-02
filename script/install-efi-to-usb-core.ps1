@@ -1627,7 +1627,7 @@ function Install-EfiToUsb {
         Stop-WithError "复制后没有找到目标 EFI\OC\config.plist。"
     }
 
-    Write-Section "安装完成"
+    Write-Section "EFI 安装完成"
     Write-Ok "已复制 BOOT"
     Write-Ok "已复制 OC"
     Write-Ok "U 盘 EFI 安装完成"
