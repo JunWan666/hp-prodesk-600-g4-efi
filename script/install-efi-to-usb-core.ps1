@@ -128,6 +128,16 @@ function Write-Warn {
     Write-HostSafe ("!!  {0}" -f $Text) "Yellow"
 }
 
+function Start-FreshConsoleLine {
+    try {
+        if ([System.Console]::CursorLeft -gt 0) {
+            [System.Console]::WriteLine()
+        }
+    } catch {
+        return
+    }
+}
+
 function Stop-WithError {
     param([string]$Text)
     Write-HostSafe ("错误：{0}" -f $Text) "Red"
@@ -333,6 +343,350 @@ function Invoke-DownloadFile {
     }
 }
 
+function Get-CurlExePath {
+    $candidates = @()
+    if ($env:SystemRoot) {
+        $candidates += (Join-Path $env:SystemRoot "System32\curl.exe")
+        $candidates += (Join-Path $env:SystemRoot "Sysnative\curl.exe")
+    }
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return $candidate
+        }
+    }
+
+    $command = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if ($command) {
+        return $command.Source
+    }
+
+    return $null
+}
+
+function Assert-AppleDownloadLength {
+    param(
+        [string]$Path,
+        [string]$FileName,
+        [Nullable[Int64]]$ExpectedSize = $null,
+        [Int64]$RemoteSize = -1
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw ("{0} 下载后没有找到文件。" -f $FileName)
+    }
+
+    $actual = (Get-Item -LiteralPath $Path).Length
+    if ($ExpectedSize -and $actual -ne $ExpectedSize) {
+        throw ("{0} 下载不完整：实际 {1:N1} MB，期望 {2:N1} MB" -f $FileName, ($actual / 1MB), ($ExpectedSize / 1MB))
+    }
+
+    if (-not $ExpectedSize -and $RemoteSize -gt 0 -and $actual -ne $RemoteSize) {
+        throw ("{0} 下载不完整：实际 {1:N1} MB，远端 {2:N1} MB" -f $FileName, ($actual / 1MB), ($RemoteSize / 1MB))
+    }
+
+    return $actual
+}
+
+function Invoke-CurlAppleAssetDownload {
+    param(
+        [string]$Url,
+        [string]$AssetToken,
+        [string]$OutFile,
+        [string]$FileName,
+        [Nullable[Int64]]$ExpectedSize = $null
+    )
+
+    $curl = Get-CurlExePath
+    if ([string]::IsNullOrWhiteSpace($curl)) {
+        throw "没有找到 Windows 自带 curl.exe。"
+    }
+
+    if ($ExpectedSize -and $ExpectedSize -gt 1MB) {
+        Invoke-CurlRangeAppleAssetDownload -Url $Url -AssetToken $AssetToken -OutFile $OutFile -FileName $FileName -ExpectedSize $ExpectedSize -CurlPath $curl
+        return
+    }
+
+    Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+    $args = @(
+        "-4",
+        "-L",
+        "--fail",
+        "--retry", "3",
+        "--retry-delay", "2",
+        "--connect-timeout", "30",
+        "--silent",
+        "--show-error",
+        "-A", "InternetRecovery/1.0",
+        "-H", ("Cookie: AssetToken={0}" -f $AssetToken),
+        "-o", $OutFile,
+        $Url
+    )
+
+    & $curl @args
+    if ($LASTEXITCODE -ne 0) {
+        throw ("curl.exe 下载失败，退出代码：{0}" -f $LASTEXITCODE)
+    }
+
+    $actual = Assert-AppleDownloadLength -Path $OutFile -FileName $FileName -ExpectedSize $ExpectedSize
+    if ($ExpectedSize) {
+        Write-Ok ("{0} 下载完成：{1:N1} MB" -f $FileName, ($actual / 1MB))
+    }
+}
+
+function Get-AppleCdnResolveSpecs {
+    param([string]$Url)
+
+    $uri = [Uri]$Url
+    if ($uri.Scheme -ne "http") {
+        return @()
+    }
+
+    $ips = @()
+    try {
+        $ips += [System.Net.Dns]::GetHostAddresses($uri.Host) |
+            Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork } |
+            ForEach-Object { $_.IPAddressToString }
+    } catch {
+        $ips = @()
+    }
+
+    $resolveDns = Get-Command Resolve-DnsName -ErrorAction SilentlyContinue
+    if ($resolveDns) {
+        foreach ($dnsServer in @("1.1.1.1", "8.8.8.8")) {
+            try {
+                $ips += Resolve-DnsName -Name $uri.Host -Type A -Server $dnsServer -ErrorAction Stop |
+                    Where-Object { $_.IP4Address } |
+                    ForEach-Object { $_.IP4Address }
+            } catch {
+                continue
+            }
+        }
+    }
+
+    $resolveSpecs = @()
+    foreach ($ip in @($ips | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique)) {
+        $resolveSpecs += ("{0}:80:{1}" -f $uri.Host, $ip)
+    }
+
+    return $resolveSpecs
+}
+
+function Invoke-CurlRangeSegmentDownload {
+    param(
+        [string]$Url,
+        [string]$AssetToken,
+        [string]$OutFile,
+        [string]$Range,
+        [string]$CurlPath,
+        [Int64]$ExpectedSize,
+        [string[]]$ResolveSpecs = @()
+    )
+
+    $baseArgs = @(
+        "-4",
+        "-L",
+        "--fail",
+        "--retry", "4",
+        "--retry-delay", "1",
+        "--retry-max-time", "60",
+        "--connect-timeout", "30",
+        "--silent",
+        "--show-error",
+        "-A", "InternetRecovery/1.0",
+        "-H", ("Cookie: AssetToken={0}" -f $AssetToken),
+        "-r", $Range,
+        "-o", $OutFile,
+        $Url
+    )
+
+    $lastError = ""
+    $candidates = @($null) + @($ResolveSpecs)
+    foreach ($resolveSpec in $candidates) {
+        Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+        $errorFile = "{0}.curlerr" -f $OutFile
+        Remove-Item -LiteralPath $errorFile -Force -ErrorAction SilentlyContinue
+        $args = $baseArgs
+        if (-not [string]::IsNullOrWhiteSpace($resolveSpec)) {
+            $args = @("--resolve", $resolveSpec) + $baseArgs
+        }
+
+        $oldErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            & $CurlPath @args 2> $errorFile
+            $exitCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $oldErrorActionPreference
+        }
+
+        $curlOutput = ""
+        if (Test-Path -LiteralPath $errorFile -PathType Leaf) {
+            $curlOutputText = Get-Content -LiteralPath $errorFile -Raw -ErrorAction SilentlyContinue
+            if ($null -ne $curlOutputText) {
+                $curlOutput = $curlOutputText.Trim()
+            }
+            Remove-Item -LiteralPath $errorFile -Force -ErrorAction SilentlyContinue
+        }
+
+        if ($exitCode -eq 0) {
+            if (-not (Test-Path -LiteralPath $OutFile -PathType Leaf)) {
+                $lastError = "未生成分段文件"
+                continue
+            }
+
+            $actualSize = (Get-Item -LiteralPath $OutFile).Length
+            if ($actualSize -eq $ExpectedSize) {
+                return [pscustomobject]@{
+                    Ok = $true
+                    Error = ""
+                }
+            }
+
+            $lastError = "分段大小不正确：实际 $actualSize 字节，期望 $ExpectedSize 字节"
+            continue
+        }
+
+        $lastError = "curl.exe 退出代码：$exitCode"
+        if (-not [string]::IsNullOrWhiteSpace($curlOutput)) {
+            $lastError = "{0}；{1}" -f $lastError, $curlOutput
+        }
+    }
+
+    return [pscustomobject]@{
+        Ok = $false
+        Error = $lastError
+    }
+}
+
+function Invoke-CurlRangeAppleAssetDownload {
+    param(
+        [string]$Url,
+        [string]$AssetToken,
+        [string]$OutFile,
+        [string]$FileName,
+        [Int64]$ExpectedSize,
+        [string]$CurlPath
+    )
+
+    Write-Info ("{0} 使用分段下载：每段 1.0 MB" -f $FileName)
+    Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+
+    $partFile = "{0}.part" -f $OutFile
+    $segmentSize = [int64]1MB
+    $done = [int64]0
+    $lastPercent = -1
+    $resolveSpecs = @(Get-AppleCdnResolveSpecs -Url $Url)
+    $outputStream = [System.IO.File]::Open($OutFile, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+
+    try {
+        while ($done -lt $ExpectedSize) {
+            $remaining = $ExpectedSize - $done
+            $currentSize = [int64][math]::Min($segmentSize, $remaining)
+            $start = $done
+            $end = $done + $currentSize - 1
+            $range = "{0}-{1}" -f $start, $end
+            $lastError = ""
+            $segmentOk = $false
+
+            for ($attempt = 1; $attempt -le 8; $attempt++) {
+                $result = Invoke-CurlRangeSegmentDownload -Url $Url -AssetToken $AssetToken -OutFile $partFile -Range $range -CurlPath $CurlPath -ExpectedSize $currentSize -ResolveSpecs $resolveSpecs
+                if ($result.Ok) {
+                    $segmentOk = $true
+                    break
+                }
+
+                $lastError = $result.Error
+                if ($attempt -lt 8) {
+                    Start-Sleep -Seconds ([math]::Min(10, $attempt * 2))
+                }
+            }
+
+            if (-not $segmentOk) {
+                throw ("{0} 分段下载失败：bytes {1}。{2}" -f $FileName, $range, $lastError)
+            }
+
+            $inputStream = [System.IO.File]::OpenRead($partFile)
+            try {
+                $inputStream.CopyTo($outputStream)
+            } finally {
+                $inputStream.Close()
+            }
+
+            $done += $currentSize
+            $percent = [int][math]::Floor(($done * 100.0) / $ExpectedSize)
+            if ($percent -ge 100 -or $percent -ge ($lastPercent + 10)) {
+                $lastPercent = $percent
+                Write-Info ("{0} 下载进度：{1:N1} / {2:N1} MB ({3}%)" -f $FileName, ($done / 1MB), ($ExpectedSize / 1MB), $percent)
+            }
+        }
+    } finally {
+        $outputStream.Close()
+        Remove-Item -LiteralPath $partFile -Force -ErrorAction SilentlyContinue
+    }
+
+    $actual = Assert-AppleDownloadLength -Path $OutFile -FileName $FileName -ExpectedSize $ExpectedSize
+    Write-Ok ("{0} 下载完成：{1:N1} MB" -f $FileName, ($actual / 1MB))
+}
+
+function Invoke-WebAppleAssetDownload {
+    param(
+        [string]$Url,
+        [string]$AssetToken,
+        [string]$OutFile,
+        [string]$FileName,
+        [Nullable[Int64]]$ExpectedSize = $null
+    )
+
+    $uri = [Uri]$Url
+    $request = [System.Net.HttpWebRequest]::Create($Url)
+    $request.Method = "GET"
+    $request.UserAgent = "InternetRecovery/1.0"
+    $request.KeepAlive = $false
+    $request.Host = $uri.Host
+    $request.Headers.Add("Cookie", ("AssetToken={0}" -f $AssetToken))
+
+    $response = $request.GetResponse()
+    try {
+        $total = $response.ContentLength
+        if ($ExpectedSize -and $total -gt 0 -and $total -ne $ExpectedSize) {
+            Write-Warn ("{0} 远端大小与 chunklist 不一致：远端 {1:N1} MB，期望 {2:N1} MB" -f $FileName, ($total / 1MB), ($ExpectedSize / 1MB))
+        }
+        $inputStream = $response.GetResponseStream()
+        $outputStream = [System.IO.File]::Open($OutFile, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+        $done = [int64]0
+        try {
+            $buffer = New-Object byte[] (1024 * 1024)
+            $lastPercent = -1
+
+            while ($true) {
+                $read = $inputStream.Read($buffer, 0, $buffer.Length)
+                if ($read -le 0) {
+                    break
+                }
+
+                $outputStream.Write($buffer, 0, $read)
+                $done += $read
+
+                if ($total -gt 0) {
+                    $percent = [int][math]::Floor(($done * 100.0) / $total)
+                    if ($percent -ge 100 -or $percent -ge ($lastPercent + 10)) {
+                        $lastPercent = $percent
+                        Write-Info ("{0} 下载进度：{1:N1} / {2:N1} MB ({3}%)" -f $FileName, ($done / 1MB), ($total / 1MB), $percent)
+                    }
+                }
+            }
+        } finally {
+            $outputStream.Close()
+            $inputStream.Close()
+        }
+
+        Assert-AppleDownloadLength -Path $OutFile -FileName $FileName -ExpectedSize $ExpectedSize -RemoteSize $total | Out-Null
+    } finally {
+        $response.Close()
+    }
+}
+
 function New-HexString {
     param([int]$Length)
 
@@ -450,58 +804,16 @@ function Invoke-AppleAssetDownload {
     $fileName = Split-Path -Leaf $OutFile
     Write-Info ("下载 {0}：{1}" -f $Label, $fileName)
 
-    $uri = [Uri]$Url
-    $request = [System.Net.HttpWebRequest]::Create($Url)
-    $request.Method = "GET"
-    $request.UserAgent = "InternetRecovery/1.0"
-    $request.KeepAlive = $false
-    $request.Host = $uri.Host
-    $request.Headers.Add("Cookie", ("AssetToken={0}" -f $AssetToken))
-
-    $response = $request.GetResponse()
     try {
-        $total = $response.ContentLength
-        if ($ExpectedSize -and $total -gt 0 -and $total -ne $ExpectedSize) {
-            Write-Warn ("{0} 远端大小与 chunklist 不一致：远端 {1:N1} MB，期望 {2:N1} MB" -f $fileName, ($total / 1MB), ($ExpectedSize / 1MB))
-        }
-        $inputStream = $response.GetResponseStream()
-        $outputStream = [System.IO.File]::Open($OutFile, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
-        $done = [int64]0
-        try {
-            $buffer = New-Object byte[] (1024 * 1024)
-            $lastPercent = -1
-
-            while ($true) {
-                $read = $inputStream.Read($buffer, 0, $buffer.Length)
-                if ($read -le 0) {
-                    break
-                }
-
-                $outputStream.Write($buffer, 0, $read)
-                $done += $read
-
-                if ($total -gt 0) {
-                    $percent = [int][math]::Floor(($done * 100.0) / $total)
-                    if ($percent -ge 100 -or $percent -ge ($lastPercent + 10)) {
-                        $lastPercent = $percent
-                        Write-Info ("{0} 下载进度：{1:N1} / {2:N1} MB ({3}%)" -f $fileName, ($done / 1MB), ($total / 1MB), $percent)
-                    }
-                }
-            }
-        } finally {
-            $outputStream.Close()
-            $inputStream.Close()
+        Invoke-CurlAppleAssetDownload -Url $Url -AssetToken $AssetToken -OutFile $OutFile -FileName $fileName -ExpectedSize $ExpectedSize
+    } catch {
+        $curlError = $_.Exception.Message
+        if ($ExpectedSize -and $ExpectedSize -gt 1MB) {
+            throw $curlError
         }
 
-        if ($ExpectedSize -and $done -ne $ExpectedSize) {
-            throw ("{0} 下载不完整：实际 {1:N1} MB，期望 {2:N1} MB" -f $fileName, ($done / 1MB), ($ExpectedSize / 1MB))
-        }
-
-        if (-not $ExpectedSize -and $total -gt 0 -and $done -ne $total) {
-            throw ("{0} 下载不完整：实际 {1:N1} MB，远端 {2:N1} MB" -f $fileName, ($done / 1MB), ($total / 1MB))
-        }
-    } finally {
-        $response.Close()
+        Write-Warn ("curl.exe 下载未成功，改用 PowerShell 流式下载：{0}" -f $curlError)
+        Invoke-WebAppleAssetDownload -Url $Url -AssetToken $AssetToken -OutFile $OutFile -FileName $fileName -ExpectedSize $ExpectedSize
     }
 }
 
@@ -1339,6 +1651,7 @@ if ($Help) {
     exit 0
 }
 
+Start-FreshConsoleLine
 Show-Banner
 
 try {
