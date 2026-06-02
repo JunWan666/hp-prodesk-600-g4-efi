@@ -443,7 +443,8 @@ function Invoke-AppleAssetDownload {
         [string]$Url,
         [string]$AssetToken,
         [string]$OutFile,
-        [string]$Label
+        [string]$Label,
+        [Nullable[Int64]]$ExpectedSize = $null
     )
 
     $fileName = Split-Path -Leaf $OutFile
@@ -460,11 +461,14 @@ function Invoke-AppleAssetDownload {
     $response = $request.GetResponse()
     try {
         $total = $response.ContentLength
+        if ($ExpectedSize -and $total -gt 0 -and $total -ne $ExpectedSize) {
+            Write-Warn ("{0} 远端大小与 chunklist 不一致：远端 {1:N1} MB，期望 {2:N1} MB" -f $fileName, ($total / 1MB), ($ExpectedSize / 1MB))
+        }
         $inputStream = $response.GetResponseStream()
         $outputStream = [System.IO.File]::Open($OutFile, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+        $done = [int64]0
         try {
             $buffer = New-Object byte[] (1024 * 1024)
-            $done = [int64]0
             $lastPercent = -1
 
             while ($true) {
@@ -488,8 +492,44 @@ function Invoke-AppleAssetDownload {
             $outputStream.Close()
             $inputStream.Close()
         }
+
+        if ($ExpectedSize -and $done -ne $ExpectedSize) {
+            throw ("{0} 下载不完整：实际 {1:N1} MB，期望 {2:N1} MB" -f $fileName, ($done / 1MB), ($ExpectedSize / 1MB))
+        }
+
+        if (-not $ExpectedSize -and $total -gt 0 -and $done -ne $total) {
+            throw ("{0} 下载不完整：实际 {1:N1} MB，远端 {2:N1} MB" -f $fileName, ($done / 1MB), ($total / 1MB))
+        }
     } finally {
         $response.Close()
+    }
+}
+
+function Invoke-AppleAssetDownloadWithRetry {
+    param(
+        [string]$Url,
+        [string]$AssetToken,
+        [string]$OutFile,
+        [string]$Label,
+        [Nullable[Int64]]$ExpectedSize = $null,
+        [int]$MaxAttempts = 3
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        try {
+            if ($attempt -gt 1) {
+                Write-Warn ("重试下载 {0}（第 {1}/{2} 次）" -f (Split-Path -Leaf $OutFile), $attempt, $MaxAttempts)
+            }
+            Invoke-AppleAssetDownload -Url $Url -AssetToken $AssetToken -OutFile $OutFile -Label $Label -ExpectedSize $ExpectedSize
+            return
+        } catch {
+            Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+            if ($attempt -ge $MaxAttempts) {
+                throw
+            }
+            Write-Warn $_.Exception.Message
+            Start-Sleep -Seconds ([math]::Min(10, 2 * $attempt))
+        }
     }
 }
 
@@ -629,6 +669,12 @@ function Assert-RecoveryImageWithChunklist {
     }
 
     Write-Ok "BaseSystem.dmg chunklist 校验通过"
+}
+
+function Get-ChunklistTotalSize {
+    param([array]$Entries)
+
+    return [int64](($Entries | Measure-Object -Property Size -Sum).Sum)
 }
 
 function Expand-ZipSafe {
@@ -1159,11 +1205,12 @@ function Ensure-RecoveryBoot {
         $info = Get-AppleRecoveryInfo
         Write-Ok ("Apple Recovery 产品：{0}" -f $info.Product)
 
-        Invoke-AppleAssetDownload -Url $info.ChunklistUrl -AssetToken $info.ChunklistToken -OutFile $tempChunklist -Label "Apple Recovery"
+        Invoke-AppleAssetDownloadWithRetry -Url $info.ChunklistUrl -AssetToken $info.ChunklistToken -OutFile $tempChunklist -Label "Apple Recovery" -MaxAttempts 3
         $entries = @(Get-ChunklistEntries -Path $tempChunklist)
         Write-Ok ("BaseSystem.chunklist 解析通过：{0} 个 chunk" -f $entries.Count)
+        $expectedDmgSize = Get-ChunklistTotalSize -Entries $entries
 
-        Invoke-AppleAssetDownload -Url $info.DmgUrl -AssetToken $info.DmgToken -OutFile $tempDmg -Label "Apple Recovery"
+        Invoke-AppleAssetDownloadWithRetry -Url $info.DmgUrl -AssetToken $info.DmgToken -OutFile $tempDmg -Label "Apple Recovery" -ExpectedSize $expectedDmgSize -MaxAttempts 3
         Assert-RecoveryImageWithChunklist -DmgPath $tempDmg -ChunklistPath $tempChunklist
 
         Copy-Item -LiteralPath $tempChunklist -Destination $targetChunklist -Force
@@ -1255,7 +1302,13 @@ function Install-EfiToUsb {
     Write-Ok "已复制 BOOT"
     Write-Ok "已复制 OC"
     Write-Ok "U 盘 EFI 安装完成"
-    Write-Line
+}
+
+function Show-FinalUsbSummary {
+    param([object]$Drive)
+
+    $root = Get-DriveRoot $Drive
+    Write-Section "全部完成"
     Write-HostSafe "当前 U 盘根目录内容："
     Get-ChildItem -LiteralPath $root -Force | Sort-Object Name | ForEach-Object {
         Write-HostSafe ("  {0}" -f $_.Name)
@@ -1288,6 +1341,7 @@ try {
     Confirm-Install -Drive $drive -SourcePath $sourcePath -WillFormat $willFormat
     Install-EfiToUsb -Drive $drive -SourcePath $sourcePath
     Ensure-RecoveryBoot -Drive $drive
+    Show-FinalUsbSummary -Drive $drive
 } finally {
     Clear-WorkDirs
 }
