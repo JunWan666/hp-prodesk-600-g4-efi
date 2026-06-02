@@ -1046,7 +1046,6 @@ function Format-UsbDrive {
             $result = Invoke-CimMethod -InputObject $volume -MethodName Format -Arguments @{
                 FileSystem = "FAT32"
                 QuickFormat = $true
-                ClusterSize = 4096
                 Label = "OPENCORE"
                 EnableCompression = $false
             } -ErrorAction Stop
@@ -1058,6 +1057,24 @@ function Format-UsbDrive {
             $formatted = $true
         } catch {
             $formatErrors += "WMI Win32_Volume：$($_.Exception.Message)"
+        }
+    }
+
+    if (-not $formatted) {
+        try {
+            $formatExe = Join-Path $env:SystemRoot "System32\format.com"
+            if (-not (Test-Path -LiteralPath $formatExe -PathType Leaf)) {
+                $formatExe = "format.com"
+            }
+
+            $output = & $formatExe $Drive.DeviceID "/FS:FAT32" "/V:OPENCORE" "/Q" "/X" "/Y" 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw (($output | Out-String).Trim())
+            }
+
+            $formatted = $true
+        } catch {
+            $formatErrors += "format.com：$($_.Exception.Message)"
         }
     }
 
