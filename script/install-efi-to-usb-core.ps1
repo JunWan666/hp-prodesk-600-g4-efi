@@ -615,7 +615,7 @@ function Invoke-CurlRangeAppleAssetDownload {
 
             $done += $currentSize
             $percent = [int][math]::Floor(($done * 100.0) / $ExpectedSize)
-            if ($percent -ge 100 -or $percent -ge ($lastPercent + 10)) {
+            if ($percent -ge 100 -or $percent -ge ($lastPercent + 1)) {
                 $lastPercent = $percent
                 Write-Info ("{0} 下载进度：{1:N1} / {2:N1} MB ({3}%)" -f $FileName, ($done / 1MB), ($ExpectedSize / 1MB), $percent)
             }
@@ -670,7 +670,7 @@ function Invoke-WebAppleAssetDownload {
 
                 if ($total -gt 0) {
                     $percent = [int][math]::Floor(($done * 100.0) / $total)
-                    if ($percent -ge 100 -or $percent -ge ($lastPercent + 10)) {
+                    if ($percent -ge 100 -or $percent -ge ($lastPercent + 1)) {
                         $lastPercent = $percent
                         Write-Info ("{0} 下载进度：{1:N1} / {2:N1} MB ({3}%)" -f $FileName, ($done / 1MB), ($total / 1MB), $percent)
                     }
@@ -1539,6 +1539,7 @@ function Ensure-RecoveryBoot {
 
     $tempRecovery = Join-Path (New-WorkDir) "com.apple.recovery.boot"
     New-Item -ItemType Directory -Path $tempRecovery -Force | Out-Null
+    Write-Info "macOS Recovery 会先下载到本地临时目录，校验通过后再复制到 U 盘。"
     $tempDmg = Join-Path $tempRecovery "BaseSystem.dmg"
     $tempChunklist = Join-Path $tempRecovery "BaseSystem.chunklist"
 
