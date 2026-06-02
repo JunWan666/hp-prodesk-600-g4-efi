@@ -22,6 +22,7 @@ if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
 }
 
 $coreUrl = "https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/main/script/install-efi-to-usb-core.ps1"
+$coreApiUrl = "https://api.github.com/repos/JunWan666/hp-prodesk-600-g4-efi/contents/script/install-efi-to-usb-core.ps1?ref=main"
 $tempCore = $null
 
 if ($repoRoot) {
@@ -44,9 +45,20 @@ if (-not $tempCore) {
     $ProgressPreference = "SilentlyContinue"
     try {
         try {
-            Invoke-WebRequest -Uri $coreDownloadUrl -OutFile $tempCore -UseBasicParsing -Headers $headers
+            $apiHeaders = @{
+                "Cache-Control" = "no-cache"
+                "Pragma" = "no-cache"
+                "User-Agent" = "hp-prodesk-usb-installer"
+            }
+            $coreInfo = Invoke-RestMethod -Uri $coreApiUrl -Headers $apiHeaders
+            $coreBytes = [System.Convert]::FromBase64String(($coreInfo.content -replace "\s", ""))
+            [System.IO.File]::WriteAllBytes($tempCore, $coreBytes)
         } catch {
-            Invoke-WebRequest -Uri $coreUrl -OutFile $tempCore -UseBasicParsing -Headers $headers
+            try {
+                Invoke-WebRequest -Uri $coreDownloadUrl -OutFile $tempCore -UseBasicParsing -Headers $headers
+            } catch {
+                Invoke-WebRequest -Uri $coreUrl -OutFile $tempCore -UseBasicParsing -Headers $headers
+            }
         }
     } finally {
         $ProgressPreference = $oldProgressPreference
