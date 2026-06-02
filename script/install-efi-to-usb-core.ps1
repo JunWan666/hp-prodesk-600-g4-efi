@@ -1421,10 +1421,22 @@ function Test-RecoveryBootComplete {
     $dmg = Join-Path $path "BaseSystem.dmg"
     $chunklist = Join-Path $path "BaseSystem.chunklist"
 
-    return ((Test-Path -LiteralPath $dmg -PathType Leaf) -and
-            (Test-Path -LiteralPath $chunklist -PathType Leaf) -and
-            ((Get-Item -LiteralPath $dmg).Length -gt 0) -and
-            ((Get-Item -LiteralPath $chunklist).Length -gt 0))
+    if (-not ((Test-Path -LiteralPath $dmg -PathType Leaf) -and
+              (Test-Path -LiteralPath $chunklist -PathType Leaf))) {
+        return $false
+    }
+
+    try {
+        $entries = @(Get-ChunklistEntries -Path $chunklist)
+        if ($entries.Count -eq 0) {
+            return $false
+        }
+
+        $expectedDmgSize = Get-ChunklistTotalSize -Entries $entries
+        return ((Get-Item -LiteralPath $dmg).Length -eq $expectedDmgSize)
+    } catch {
+        return $false
+    }
 }
 
 function Assert-UnderRoot {
