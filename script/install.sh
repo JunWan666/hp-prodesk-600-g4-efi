@@ -79,7 +79,7 @@ banner() {
   say "╭────────────────────────────────────────────────────────────╮"
   say "│  HP ProDesk 600 G4 DM                                      │"
   say "│  OpenCore EFI Installer                                    │"
-  say "│  Ventura 13.7.8 · safe / igpu · DW1820A Ready              │"
+  say "│  Ventura 13.7.8 · safe / igpu · DW1820A Wi-Fi Ready        │"
   say "╰────────────────────────────────────────────────────────────╯"
   printf '%s' "$C_RESET"
   say
@@ -467,20 +467,20 @@ choose_manual_source() {
 source_menu() {
   while :; do
     section "选择 EFI 来源"
-    say "  ${C_GREEN}${C_BOLD}[默认]${C_RESET}  1) 使用当前 U 盘 EFI"
+    say "  ${C_GREEN}${C_BOLD}[默认]${C_RESET}  1. 使用当前 U 盘 EFI"
     say "              已经用这个 U 盘成功进系统时，选这个最稳"
     say
-    say "          2) GitHub · Ventura 13.7.8 · igpu 核显加速版"
+    say "          2. GitHub · Ventura 13.7.8 · igpu 核显加速版"
     say "              DP 直连 / 主动式 DP 转 HDMI，日常使用推荐"
-    say "              包含：UHD 630 加速 + DW1820A 无线蓝牙"
+    say "              包含：UHD 630 加速 + DW1820A Wi-Fi；蓝牙待修"
     say
-    say "          3) GitHub · Ventura 13.7.8 · safe 安全亮屏版"
+    say "          3. GitHub · Ventura 13.7.8 · safe 安全亮屏版"
     say "              首次安装、黑屏救援、显示器线材不确定"
-    say "              包含：安全亮屏 + DW1820A 无线蓝牙"
+    say "              包含：安全亮屏 + DW1820A Wi-Fi；蓝牙待修"
     say
-    say "          4) 手动输入 EFI 路径"
+    say "          4. 手动输入 EFI 路径"
     say
-    say "          0) 退出"
+    say "          0. 退出"
     say
 
     choice="$(ask "请选择 EFI 来源 [1]：")"

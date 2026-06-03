@@ -45,14 +45,14 @@ all_efi
 
 ## 无线网卡
 
-Ventura 13.7.8 的两套 EFI 已验证 Dell DW1820A / Broadcom BCM94350ZAE 可用，包含：
+Ventura 13.7.8 的两套 EFI 已验证 Dell DW1820A / Broadcom BCM94350ZAE Wi-Fi 可用，蓝牙当前仍不可用。EFI 内包含：
 
 - `AirportBrcmFixup.kext`
 - `BlueToolFixup.kext`
 - `BrcmFirmwareData.kext`
 - `BrcmPatchRAM3.kext`
 
-对应 `boot-args` 已加入 `brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2`。如果蓝牙不可用，优先检查网卡蓝牙对应的 USB 端口映射。
+对应 `boot-args` 已加入 `brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2`。蓝牙后续优先排查网卡蓝牙对应的 USB 端口映射。
 
 公开版已经清理个人 SMBIOS 信息。使用前请重新生成并填写：
 

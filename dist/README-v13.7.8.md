@@ -1,6 +1,6 @@
 # HP ProDesk 600 G4 DM OpenCore EFI - Ventura 13.7.8
 
-这是 HP ProDesk 600 G4 Desktop Mini 的 macOS Ventura 13.7.8 OpenCore EFI Release。当前版本已验证可以进入 macOS Ventura 13.7.8，支持 UHD 630 核显加速，并已加入 Dell DW1820A / Broadcom BCM94350ZAE 无线网卡和蓝牙驱动。
+这是 HP ProDesk 600 G4 Desktop Mini 的 macOS Ventura 13.7.8 OpenCore EFI Release。当前版本已验证可以进入 macOS Ventura 13.7.8，支持 UHD 630 核显加速，并已加入 Dell DW1820A / Broadcom BCM94350ZAE Wi-Fi 支持。蓝牙相关 kext 已包含，但当前机器蓝牙仍不可用，待继续排查 USB 映射。
 
 > 本次重新打包修复了旧 ZIP 在 macOS 自带 `unzip` 下可能因为 Windows 反斜杠路径导致解压失败的问题。新版 ZIP 内部路径已经改为 `EFI/OC/...`，可直接在 macOS 解压使用。
 
@@ -10,8 +10,8 @@
 
 | 文件 | 模式 | 适合场景 | SHA256 |
 | --- | --- | --- | --- |
-| `hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip` | 核显加速版 | 推荐日用；需要 DP 直连显示器，或主动式 DP 转 HDMI | `91190ce8ee4864a70a67bc0934a24f889482e87f485c64e45c94a3653cdc119e` |
-| `hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip` | 安全亮屏版 | 首次安装、黑屏救援、显示器线材不确定 | `94e7053fa7b79d915768bb96a35892d6a1dca27c90e5cd561d8175978a67bd53` |
+| `hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip` | 核显加速版 | 推荐日用；需要 DP 直连显示器，或主动式 DP 转 HDMI | `2dcb0488e99fdcc7852a8fd480695f4fcfc623297be3b5756dd8f4bfdeb7d631` |
+| `hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip` | 安全亮屏版 | 首次安装、黑屏救援、显示器线材不确定 | `0e2a4daaf2f89650e2d856a7b221269cc5812cfde8b700e058b959134e09d463` |
 
 对应本地文件位置：
 
@@ -28,7 +28,7 @@ dist/hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
 | CPU | Intel Core i3-9100T |
 | 核显 | Intel UHD Graphics 630 |
 | 有线网卡 | Intel I219-LM |
-| 无线网卡 | Dell DW1820A / Broadcom BCM94350ZAE，已验证 |
+| 无线网卡 | Dell DW1820A / Broadcom BCM94350ZAE，Wi-Fi 已验证 |
 | 声卡 | Conexant，当前使用 `alcid=23` |
 | SMBIOS | `Macmini8,1` |
 | OpenCore | 1.0.7 |
@@ -105,9 +105,9 @@ curl -fsSL https://raw.githubusercontent.com/JunWan666/hp-prodesk-600-g4-efi/mai
 
 不建议使用普通被动式 DP 转 HDMI 线。选购转接器时优先看是否标注 `Active`、`主动式`、`DP 1.2 to HDMI 2.0`、`4K60`。
 
-## DW1820A 无线和蓝牙
+## DW1820A Wi-Fi 和蓝牙状态
 
-本 Release 的 `igpu` 和 `safe` 两个 ZIP 都已加入 Dell DW1820A / Broadcom BCM94350ZAE 支持。已包含这些 kext：
+本 Release 的 `igpu` 和 `safe` 两个 ZIP 都已加入 Dell DW1820A / Broadcom BCM94350ZAE 支持。当前 Wi-Fi 已验证可用，蓝牙仍不可用，待继续排查网卡蓝牙对应的 USB 端口映射。EFI 内包含这些 kext：
 
 ```text
 AirportBrcmFixup.kext
@@ -126,7 +126,7 @@ brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2
 
 - 网卡需要接好 MAIN / AUX 天线。
 - 不要把自己网卡的 MAC 地址写进公开仓库或截图里。
-- 如果 Wi-Fi 可用但蓝牙不可用，优先检查网卡蓝牙对应的 USB 端口映射。
+- 蓝牙当前仍不可用，后续优先检查网卡蓝牙对应的 USB 端口映射。
 - 这个无线方案是在 Ventura 13.7.8 上验证通过的；Monterey 12.7.6 历史包未在本次更新中重新测试。
 
 ## 黑屏恢复
@@ -142,7 +142,7 @@ brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2
 
 - Ventura 13.7.8 可进入系统。
 - 有线网卡可用。
-- Dell DW1820A Wi-Fi / 蓝牙可用。
+- Dell DW1820A Wi-Fi 可用；蓝牙当前仍不可用。
 - USB 鼠标键盘可用。
 - UHD 630 核显加速在 DP 直连和主动式 DP 转 HDMI 下可用。
 - 声音使用 `alcid=23`，不同机器可能需要自行复测。
@@ -150,8 +150,8 @@ brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2
 ## SHA256
 
 ```text
-91190ce8ee4864a70a67bc0934a24f889482e87f485c64e45c94a3653cdc119e  hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip
-94e7053fa7b79d915768bb96a35892d6a1dca27c90e5cd561d8175978a67bd53  hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
+2dcb0488e99fdcc7852a8fd480695f4fcfc623297be3b5756dd8f4bfdeb7d631  hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip
+0e2a4daaf2f89650e2d856a7b221269cc5812cfde8b700e058b959134e09d463  hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
 ```
 
 ## 免责声明
