@@ -248,26 +248,43 @@ usb_source_candidates() {
 
   mount_external_efi_partitions
 
-  ids="$(diskutil list external physical 2>/dev/null | awk '/ EFI / && $NF ~ /^disk[0-9]+s[0-9]+$/ {print $NF}')"
-  [ -n "$ids" ] || return 0
+  {
+    ids="$(diskutil list external physical 2>/dev/null | awk '/ EFI / && $NF ~ /^disk[0-9]+s[0-9]+$/ {print $NF}')"
 
-  for id in $ids; do
-    mount_point="$(disk_mount_point "$id" || true)"
-    [ -n "$mount_point" ] || continue
-    [ "$mount_point" = "Not mounted" ] && continue
+    for id in $ids; do
+      mount_point="$(disk_mount_point "$id" || true)"
+      [ -n "$mount_point" ] || continue
+      [ "$mount_point" = "Not mounted" ] && continue
 
-    for d in "$mount_point/EFI" "$mount_point"; do
-      [ -d "$d" ] || continue
-      is_valid_efi_dir "$d" || continue
-      d="$(canonical_dir "$d")"
+      for d in "$mount_point/EFI" "$mount_point"; do
+        [ -d "$d" ] || continue
+        is_valid_efi_dir "$d" || continue
+        d="$(canonical_dir "$d")"
 
-      case "$d" in
-        "$target_mount"/EFI|"$target_mount"/EFI/*) continue ;;
-      esac
+        case "$d" in
+          "$target_mount"|"$target_mount"/EFI|"$target_mount"/EFI/*) continue ;;
+        esac
 
-      printf '%s\n' "$d"
+        printf '%s\n' "$d"
+      done
     done
-  done | awk '!seen[$0]++'
+
+    for mount_point in /Volumes/*; do
+      [ -d "$mount_point" ] || continue
+
+      for d in "$mount_point/EFI" "$mount_point"; do
+        [ -d "$d" ] || continue
+        is_valid_efi_dir "$d" || continue
+        d="$(canonical_dir "$d")"
+
+        case "$d" in
+          "$target_mount"|"$target_mount"/EFI|"$target_mount"/EFI/*) continue ;;
+        esac
+
+        printf '%s\n' "$d"
+      done
+    done
+  } | awk '!seen[$0]++'
 }
 
 print_candidates() {
