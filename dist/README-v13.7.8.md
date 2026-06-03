@@ -10,8 +10,8 @@
 
 | 文件 | 模式 | 适合场景 | SHA256 |
 | --- | --- | --- | --- |
-| `hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip` | 核显加速版 | 推荐日用；需要 DP 直连显示器，或主动式 DP 转 HDMI | `10b10e6c30f986c16f1e4cbbfef35cfe80cd2791d33d5881f4731a81cfa03f97` |
-| `hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip` | 安全亮屏版 | 首次安装、黑屏救援、显示器线材不确定 | `0232d1dba1a4b754cb3b8777ffb2c4ad4c5b7da8d51631c53fd6d4e8c9ba0fa4` |
+| `hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip` | 核显加速版 | 推荐日用；需要 DP 直连显示器，或主动式 DP 转 HDMI | `91190ce8ee4864a70a67bc0934a24f889482e87f485c64e45c94a3653cdc119e` |
+| `hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip` | 安全亮屏版 | 首次安装、黑屏救援、显示器线材不确定 | `94e7053fa7b79d915768bb96a35892d6a1dca27c90e5cd561d8175978a67bd53` |
 
 对应本地文件位置：
 
@@ -150,8 +150,8 @@ brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2
 ## SHA256
 
 ```text
-10b10e6c30f986c16f1e4cbbfef35cfe80cd2791d33d5881f4731a81cfa03f97  hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip
-0232d1dba1a4b754cb3b8777ffb2c4ad4c5b7da8d51631c53fd6d4e8c9ba0fa4  hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
+91190ce8ee4864a70a67bc0934a24f889482e87f485c64e45c94a3653cdc119e  hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip
+94e7053fa7b79d915768bb96a35892d6a1dca27c90e5cd561d8175978a67bd53  hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
 ```
 
 ## 免责声明

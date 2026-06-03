@@ -18,6 +18,20 @@
 
 公开版已经移除个人 SMBIOS 信息。使用前必须重新生成自己的 `SystemSerialNumber`、`MLB`、`SystemUUID` 和 `ROM`。
 
+## 效果截图
+
+### 关于本机
+
+![macOS Ventura About This Mac](docs/macos-about-this-mac.png)
+
+### DW1820A Wi-Fi 连接
+
+![DW1820A Wi-Fi Connected](docs/wifi-connected.png)
+
+### Safari 访问当前 GitHub 项目
+
+![Safari GitHub Project](docs/safari-github-project.png)
+
 ## 硬件配置
 
 | 项目 | 配置 |
@@ -54,6 +68,7 @@
 | UHD 630 核显加速 | 可开启 | 使用 `igpu` 目录；`safe` 目录保留 `-igfxvesa` 用于亮屏救援 |
 | DP 输出 | 可用 | DP 直连显示器已验证可开核显加速 |
 | DP 转 HDMI | 可用 | 需主动式 DP 转 HDMI；普通被动线不保证 |
+| HP RTC / 005 报错 | 已加入修复 | Ventura 13.7.8 已启用 RTC ACPI Patch 和 `DisableRtcChecksum` |
 
 ## 目录结构
 

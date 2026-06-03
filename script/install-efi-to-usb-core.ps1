@@ -198,7 +198,7 @@ function Get-ReleaseSourceOptions {
             Mode = "igpu"
             Name = "GitHub · Ventura 13.7.8 · igpu 核显加速版"
             FileName = "hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip"
-            Sha256 = "10b10e6c30f986c16f1e4cbbfef35cfe80cd2791d33d5881f4731a81cfa03f97"
+            Sha256 = "91190ce8ee4864a70a67bc0934a24f889482e87f485c64e45c94a3653cdc119e"
             Desc = "DP 直连 / 主动式 DP 转 HDMI，日常使用推荐；包含 DW1820A"
         },
         [pscustomobject]@{
@@ -207,7 +207,7 @@ function Get-ReleaseSourceOptions {
             Mode = "safe"
             Name = "GitHub · Ventura 13.7.8 · safe 安全亮屏版"
             FileName = "hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip"
-            Sha256 = "0232d1dba1a4b754cb3b8777ffb2c4ad4c5b7da8d51631c53fd6d4e8c9ba0fa4"
+            Sha256 = "94e7053fa7b79d915768bb96a35892d6a1dca27c90e5cd561d8175978a67bd53"
             Desc = "首次安装、黑屏救援、显示器线材不确定；包含 DW1820A"
         }
     )
