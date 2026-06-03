@@ -54,6 +54,10 @@ Ventura 13.7.8 的两套 EFI 已验证 Dell DW1820A / Broadcom BCM94350ZAE Wi-Fi
 
 对应 `boot-args` 已加入 `brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2`。蓝牙后续优先排查网卡蓝牙对应的 USB 端口映射。
 
+## RTC / 005 测试修复
+
+Ventura 13.7.8 的两套 EFI 已加入 `RTCMemoryFixup.kext` 和 `rtcfx_exclude=58-59,B0-B3,D0-DF`，用于测试修复 HP 开机自检时间无效 / `Real Time Clock Power Loss (005)` 问题。安装后建议执行一次 `Reset NVRAM` 再复测。
+
 公开版已经清理个人 SMBIOS 信息。使用前请重新生成并填写：
 
 - `SystemSerialNumber`

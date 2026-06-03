@@ -3,6 +3,7 @@
 这是 HP ProDesk 600 G4 Desktop Mini 的 macOS Ventura 13.7.8 OpenCore EFI Release。当前版本已验证可以进入 macOS Ventura 13.7.8，支持 UHD 630 核显加速，并已加入 Dell DW1820A / Broadcom BCM94350ZAE Wi-Fi 支持。蓝牙相关 kext 已包含，但当前机器蓝牙仍不可用，待继续排查 USB 映射。
 
 > 本次重新打包修复了旧 ZIP 在 macOS 自带 `unzip` 下可能因为 Windows 反斜杠路径导致解压失败的问题。新版 ZIP 内部路径已经改为 `EFI/OC/...`，可直接在 macOS 解压使用。
+> 本次还加入 `RTCMemoryFixup.kext` 和 `rtcfx_exclude=58-59,B0-B3,D0-DF`，用于测试修复 HP 开机自检时间无效 / `Real Time Clock Power Loss (005)` 问题。
 
 ## 本次上传文件
 
@@ -10,8 +11,8 @@
 
 | 文件 | 模式 | 适合场景 | SHA256 |
 | --- | --- | --- | --- |
-| `hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip` | 核显加速版 | 推荐日用；需要 DP 直连显示器，或主动式 DP 转 HDMI | `2dcb0488e99fdcc7852a8fd480695f4fcfc623297be3b5756dd8f4bfdeb7d631` |
-| `hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip` | 安全亮屏版 | 首次安装、黑屏救援、显示器线材不确定 | `0e2a4daaf2f89650e2d856a7b221269cc5812cfde8b700e058b959134e09d463` |
+| `hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip` | 核显加速版 | 推荐日用；需要 DP 直连显示器，或主动式 DP 转 HDMI | `997a07004ae809de7b4ddba81f8c85e3560956f81c67586d2828f01e0d3fe1a4` |
+| `hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip` | 安全亮屏版 | 首次安装、黑屏救援、显示器线材不确定 | `dd46ef6ae6420668b03ab1a9a8b6eac0ab123f9a1d05349148223ac708929fb2` |
 
 对应本地文件位置：
 
@@ -129,6 +130,17 @@ brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2
 - 蓝牙当前仍不可用，后续优先检查网卡蓝牙对应的 USB 端口映射。
 - 这个无线方案是在 Ventura 13.7.8 上验证通过的；Monterey 12.7.6 历史包未在本次更新中重新测试。
 
+## RTC / 005 测试修复
+
+本 Release 已加入：
+
+- `RTCMemoryFixup.kext`
+- `rtcfx_exclude=58-59,B0-B3,D0-DF`
+- RTC ACPI Patch
+- `DisableRtcChecksum`
+
+这用于测试修复 HP 开机自检时间无效 / `Real Time Clock Power Loss (005)` 问题。安装后建议在 OpenCore 执行一次 `Reset NVRAM`，再测试关机、重启和断电后开机。
+
 ## 黑屏恢复
 
 如果使用 `igpu` 后黑屏：
@@ -145,13 +157,14 @@ brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2
 - Dell DW1820A Wi-Fi 可用；蓝牙当前仍不可用。
 - USB 鼠标键盘可用。
 - UHD 630 核显加速在 DP 直连和主动式 DP 转 HDMI 下可用。
+- HP RTC / 005 自检问题已加入测试修复，仍需实机复测。
 - 声音使用 `alcid=23`，不同机器可能需要自行复测。
 
 ## SHA256
 
 ```text
-2dcb0488e99fdcc7852a8fd480695f4fcfc623297be3b5756dd8f4bfdeb7d631  hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip
-0e2a4daaf2f89650e2d856a7b221269cc5812cfde8b700e058b959134e09d463  hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
+997a07004ae809de7b4ddba81f8c85e3560956f81c67586d2828f01e0d3fe1a4  hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip
+dd46ef6ae6420668b03ab1a9a8b6eac0ab123f9a1d05349148223ac708929fb2  hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
 ```
 
 ## 免责声明

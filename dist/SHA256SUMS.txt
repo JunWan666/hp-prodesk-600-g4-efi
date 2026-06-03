@@ -1,4 +1,4 @@
 37095a2acdb4def09818ca89914d5511a303e6c903e6da81f89b1c9f32dc72a9  hp-prodesk-600-g4-dm-monterey-12.7.6-igpu.zip
 6e3ea810626066d612f714cab76c0e50b1fbc0b49e9c44517070d4892312caf2  hp-prodesk-600-g4-dm-monterey-12.7.6-safe.zip
-2dcb0488e99fdcc7852a8fd480695f4fcfc623297be3b5756dd8f4bfdeb7d631  hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip
-0e2a4daaf2f89650e2d856a7b221269cc5812cfde8b700e058b959134e09d463  hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
+997a07004ae809de7b4ddba81f8c85e3560956f81c67586d2828f01e0d3fe1a4  hp-prodesk-600-g4-dm-ventura-13.7.8-igpu.zip
+dd46ef6ae6420668b03ab1a9a8b6eac0ab123f9a1d05349148223ac708929fb2  hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip

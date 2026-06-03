@@ -64,7 +64,7 @@
 | UHD 630 核显加速 | ✅ 可开启 | 使用 `igpu` 目录；`safe` 目录保留 `-igfxvesa` 用于亮屏救援 |
 | DP 输出 | ✅ 可用 | DP 直连显示器已验证可开核显加速 |
 | DP 转 HDMI | ✅ 可用 | 需主动式 DP 转 HDMI；普通被动线不保证 |
-| HP RTC / 005 报错 | ✅ 已加入修复 | Ventura 13.7.8 已启用 RTC ACPI Patch 和 `DisableRtcChecksum` |
+| HP RTC / 005 报错 | 🧪 测试修复中 | 已加入 RTC ACPI Patch、`DisableRtcChecksum`、`RTCMemoryFixup.kext` 和 `rtcfx_exclude`，需实机复测 |
 
 ## 目录结构
 
@@ -329,6 +329,17 @@ brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2
 ```
 
 安装网卡时需要接好 MAIN / AUX 天线。不要把自己网卡的 MAC 地址、序列号等个人信息写进公开仓库。
+
+## HP RTC / 005 自检问题
+
+Ventura 13.7.8 已加入第二层测试修复：
+
+- `RTCMemoryFixup.kext`
+- `rtcfx_exclude=58-59,B0-B3,D0-DF`
+- RTC ACPI Patch
+- `DisableRtcChecksum`
+
+这是针对 HP 开机自检出现时间无效、`Real Time Clock Power Loss (005)` 一类问题的测试修复。安装后建议在 OpenCore 执行一次 `Reset NVRAM`，再测试关机、重启和断电后开机。
 
 ## 已知问题
 
