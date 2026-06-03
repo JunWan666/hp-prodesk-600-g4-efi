@@ -3,7 +3,7 @@
 这是 HP ProDesk 600 G4 Desktop Mini 的 macOS Ventura 13.7.8 OpenCore EFI Release。当前版本已验证可以进入 macOS Ventura 13.7.8，支持 UHD 630 核显加速，并已加入 Dell DW1820A / Broadcom BCM94350ZAE Wi-Fi 支持。蓝牙相关 kext 已包含，但当前机器蓝牙仍不可用，待继续排查 USB 映射。
 
 > 本次重新打包修复了旧 ZIP 在 macOS 自带 `unzip` 下可能因为 Windows 反斜杠路径导致解压失败的问题。新版 ZIP 内部路径已经改为 `EFI/OC/...`，可直接在 macOS 解压使用。
-> 本次还加入 `RTCMemoryFixup.kext` 和 `rtcfx_exclude=58-59,B0-B3,D0-DF`，用于测试修复 HP 开机自检时间无效 / `Real Time Clock Power Loss (005)` 问题。
+> 本次还加入 `RTCMemoryFixup.kext` 和 `rtcfx_exclude=58-59,B0-B3,D0-DF`，已实机验证修复 HP 开机自检时间无效 / `Real Time Clock Power Loss (005)` 问题。
 
 ## 本次上传文件
 
@@ -30,7 +30,7 @@ dist/hp-prodesk-600-g4-dm-ventura-13.7.8-safe.zip
 | 核显 | Intel UHD Graphics 630 |
 | 有线网卡 | Intel I219-LM |
 | 无线网卡 | Dell DW1820A / Broadcom BCM94350ZAE，Wi-Fi 已验证 |
-| 声卡 | Conexant，当前使用 `alcid=23` |
+| 声卡 | Conexant，已验证使用 `alcid=23` |
 | SMBIOS | `Macmini8,1` |
 | OpenCore | 1.0.7 |
 
@@ -130,16 +130,16 @@ brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2
 - 蓝牙当前仍不可用，后续优先检查网卡蓝牙对应的 USB 端口映射。
 - 这个无线方案是在 Ventura 13.7.8 上验证通过的；Monterey 12.7.6 历史包未在本次更新中重新测试。
 
-## RTC / 005 测试修复
+## RTC / 005 修复
 
-本 Release 已加入：
+本 Release 已实机验证修复 HP 开机自检时间无效 / `Real Time Clock Power Loss (005)` 问题。修复组合：
 
 - `RTCMemoryFixup.kext`
 - `rtcfx_exclude=58-59,B0-B3,D0-DF`
 - RTC ACPI Patch
 - `DisableRtcChecksum`
 
-这用于测试修复 HP 开机自检时间无效 / `Real Time Clock Power Loss (005)` 问题。安装后建议在 OpenCore 执行一次 `Reset NVRAM`，再测试关机、重启和断电后开机。
+首次替换到这套 EFI 后，建议在 OpenCore 执行一次 `Reset NVRAM`，再测试关机、重启和断电后开机。
 
 ## 黑屏恢复
 
@@ -157,8 +157,8 @@ brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2
 - Dell DW1820A Wi-Fi 可用；蓝牙当前仍不可用。
 - USB 鼠标键盘可用。
 - UHD 630 核显加速在 DP 直连和主动式 DP 转 HDMI 下可用。
-- HP RTC / 005 自检问题已加入测试修复，仍需实机复测。
-- 声音使用 `alcid=23`，不同机器可能需要自行复测。
+- HP RTC / 005 自检问题已修复。
+- 声音可用，使用 `alcid=23`。
 
 ## SHA256
 

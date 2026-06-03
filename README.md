@@ -60,11 +60,11 @@
 | DW1820A Wi-Fi | ✅ 可用 | Ventura 13.7.8 已验证；EFI 内含 `AirportBrcmFixup.kext` |
 | DW1820A 蓝牙 | ❌ 不可用 | 已包含蓝牙相关 kext，但当前机器仍未正常工作，待继续排查 USB 映射 |
 | USB 鼠标键盘 | ✅ 可用 | `USBPorts.kext`，Ventura EFI 临时开启 `XhciPortLimit` |
-| 声音 | ⚠️ 待复测 | 使用 `alcid=23` |
+| 声音 | ✅ 可用 | 使用 `alcid=23` |
 | UHD 630 核显加速 | ✅ 可开启 | 使用 `igpu` 目录；`safe` 目录保留 `-igfxvesa` 用于亮屏救援 |
 | DP 输出 | ✅ 可用 | DP 直连显示器已验证可开核显加速 |
 | DP 转 HDMI | ✅ 可用 | 需主动式 DP 转 HDMI；普通被动线不保证 |
-| HP RTC / 005 报错 | 🧪 测试修复中 | 已加入 RTC ACPI Patch、`DisableRtcChecksum`、`RTCMemoryFixup.kext` 和 `rtcfx_exclude`，需实机复测 |
+| HP RTC / 005 报错 | ✅ 已修复 | 已实机验证；使用 RTC ACPI Patch、`DisableRtcChecksum`、`RTCMemoryFixup.kext` 和 `rtcfx_exclude` |
 
 ## 目录结构
 
@@ -332,14 +332,14 @@ brcmfx-country=#a brcmfx-aspm=0 brcmfx-driver=2
 
 ## HP RTC / 005 自检问题
 
-Ventura 13.7.8 已加入第二层测试修复：
+Ventura 13.7.8 已修复 HP 开机自检出现时间无效、`Real Time Clock Power Loss (005)` 一类问题，当前实机验证通过。修复组合：
 
 - `RTCMemoryFixup.kext`
 - `rtcfx_exclude=58-59,B0-B3,D0-DF`
 - RTC ACPI Patch
 - `DisableRtcChecksum`
 
-这是针对 HP 开机自检出现时间无效、`Real Time Clock Power Loss (005)` 一类问题的测试修复。安装后建议在 OpenCore 执行一次 `Reset NVRAM`，再测试关机、重启和断电后开机。
+首次替换到这套 EFI 后，建议在 OpenCore 执行一次 `Reset NVRAM`，再测试关机、重启和断电后开机。
 
 ## 已知问题
 
